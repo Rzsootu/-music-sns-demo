@@ -17,7 +17,7 @@
 <script>
 let sb,me,prof;
 const SUPABASE_URL='https://oriivnqzxarfxpedlnsx.supabase.co';
-const SUPABASE_PUBLISHABLE_KEY='sb_publishable_xVaDv4IJPu07r7UU2q5zrQ_1NJYjfvX
+const SUPABASE_PUBLISHABLE_KEY='sb_publishable_xVaDv4IJPu07r7UU2q5zrQ_1NJYjfvX';
 function show(id){document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));document.getElementById(id).classList.add('active')}
 async function boot(){sb=supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);let {data:{session}}=await sb.auth.getSession();if(!session){show('auth');return}me=session.user;await profile();start()}
 async function signup(){let {data,error}=await sb.auth.signUp({email:email.value.trim(),password:pass.value,options:{data:{username:uname.value.trim()}}});if(error)return msg.textContent=error.message;if(!data.session)return msg.textContent='確認メールを確認してからログインして。';me=data.user;await profile();start()}

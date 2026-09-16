@@ -17,7 +17,7 @@
 <script>
 let sb,me,prof;
 const SUPABASE_URL='https://oriivnqzxarfxpedlnsx.supabase.co';
-const SUPABASE_PUBLISHABLE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9yaWl2bnF6eGFyZnhwZWRsbnN4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1NDU3MDgsImV4cCI6MjEwNTEyMTcwOH0.b-fE0dc4hB-s2DEFq4LE025BRW85BfZKi5xCEQJsQ8c
+const SUPABASE_PUBLISHABLE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9yaWl2bnF6eGFyZnhwZWRsbnN4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1NDU3MDgsImV4cCI6MjEwNTEyMTcwOH0.b-fE0dc4hB-s2DEFq4LE025BRW85BfZKi5xCEQJsQ8c';
 function show(id){document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));document.getElementById(id).classList.add('active')}
 async function boot(){sb=supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);let {data:{session}}=await sb.auth.getSession();if(!session){show('auth');return}me=session.user;await profile();start()}
 async function signup(){let {data,error}=await sb.auth.signUp({email:email.value.trim(),password:pass.value,options:{data:{username:uname.value.trim()}}});if(error)return msg.textContent=error.message;if(!data.session)return msg.textContent='確認メールを確認してからログインして。';me=data.user;await profile();start()}

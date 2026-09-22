@@ -30,7 +30,20 @@ const $=id=>document.getElementById(id);
 function show(id){document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));$(id).classList.add('active')}
 function esc(s=''){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function pop(t){$('toast').textContent=t;$('toast').style.display='block';setTimeout(()=>$('toast').style.display='none',2000)}
-async function ensureProfile(){let r=await sb.from('profiles').select('*').eq('id',me.id).maybeSingle();if(r.error)throw r.error;prof=r.data;if(!prof){let n=me.user_metadata?.username||('user_'+me.id.slice(0,8));let x=await sb.from('profiles').insert({id:me.id,username:n,display_name:me.user_metadata?.display_name||n}).select().single();if(x.error)throw x.error;prof=x.data}}
+async function ensureProfile(){
+  let r=await sb.from('profiles')
+    .select('*')
+    .eq('id',me.id)
+    .maybeSingle();
+
+  if(r.error) throw r.error;
+
+  prof=r.data;
+
+  if(!prof){
+    throw new Error('プロフィールが見つかりません');
+  }
+}
 async function boot(){try{sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);let r=await sb.auth.getSession();if(r.error)throw r.error;if(!r.data.session){$('nav').classList.add('hidden');show('auth');return}me=r.data.session.user;await ensureProfile();start()}catch(e){$('nav').classList.add('hidden');show('auth');$('msg').textContent=e.message}}
 async function signup(){try{let n=$('uname').value.trim();if(n.length<3)throw new Error('ユーザー名は3文字以上にしてね');let r=await sb.auth.signUp({email:$('email').value.trim(),password:$('pass').value,options:{emailRedirectTo:APP_URL,data:{username:n,display_name:n}}});if(r.error)throw r.error;if(!r.data.session){$('msg').textContent='確認メールを開いてからMoodに戻ってログインしてね';return}me=r.data.user;await ensureProfile();start()}catch(e){$('msg').textContent=e.message}}
 async function login(){try{$('msg').textContent='ログイン中…';let r=await sb.auth.signInWithPassword({email:$('email').value.trim(),password:$('pass').value});if(r.error)throw r.error;me=r.data.user;await ensureProfile();$('msg').textContent='';start()}catch(e){$('msg').textContent=e.message}}

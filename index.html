@@ -3,24 +3,88 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Mood 🎵</title>
+<title>Melory — Every memory has a melody.</title>
 <style>
-*{box-sizing:border-box}body{margin:0;background:#ddd;font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial;color:#111}.app{max-width:430px;min-height:100vh;margin:auto;background:#f7f7f8;padding-bottom:82px}header{background:#fff;padding:15px 18px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;position:sticky;top:0;z-index:5}.logo{font-size:25px;font-weight:900}.sub,.muted{font-size:12px;color:#777}.avatar{width:40px;height:40px;border-radius:50%;background:#111;color:#fff;display:grid;place-items:center;font-weight:800}.page{display:none;padding:15px}.page.active{display:block}.card{background:#fff;border:1px solid #e8e8e8;border-radius:20px;padding:15px;margin:10px 0}.hero{background:#111;color:#fff;border-radius:24px;padding:20px}.hero h1{font-size:27px}.btn{border:0;border-radius:13px;padding:11px 14px;font-weight:800;background:#eee}.black{background:#111;color:#fff}.field{width:100%;padding:13px;border:1px solid #ddd;border-radius:14px;font-size:15px;margin:6px 0}.row{display:flex;gap:12px;align-items:center}.grow{flex:1}.cover{width:62px;height:62px;border-radius:12px;background:#eee;display:grid;place-items:center;font-size:28px}.song{font-weight:850}.artist{font-size:13px;color:#777;margin-top:4px}.time{font-size:11px;color:#999;margin-top:5px}.bottom{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(430px,100%);height:70px;background:#fff;border-top:1px solid #eee;display:flex;justify-content:space-around;align-items:center;z-index:10}.nav{border:0;background:none;font-weight:800;font-size:11px}.hidden{display:none!important}.modal{position:fixed;inset:0;background:#0008;display:none;align-items:flex-end;z-index:20}.sheet{width:min(430px,100%);margin:auto;background:#fff;border-radius:25px 25px 0 0;padding:20px}.toast{position:fixed;bottom:85px;left:50%;transform:translateX(-50%);background:#111;color:#fff;padding:11px 16px;border-radius:20px;display:none;z-index:30}.story{min-width:62px;text-align:center;font-size:11px}.storyIcon{width:56px;height:56px;border:3px solid #111;border-radius:50%;display:grid;place-items:center;font-size:25px;margin:auto}.likeOn{background:#111;color:#fff}.error{color:#b00020}
+:root{
+  --bg:#08090d;--panel:#111218;--panel2:#171820;--line:#252733;
+  --text:#f7f4f6;--muted:#9696a2;--accent:#efc7c8;--accent2:#9d8cff;
+}
+*{box-sizing:border-box}
+html{background:#050609}
+body{margin:0;background:radial-gradient(circle at top,#171526 0,#090a0f 38%,#050609 100%);
+font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",Arial;color:var(--text)}
+button,input{font:inherit}
+button{cursor:pointer}
+.app{max-width:430px;min-height:100vh;margin:auto;background:linear-gradient(180deg,#0b0c12 0%,#08090d 100%);padding-bottom:96px}
+header{padding:calc(15px + env(safe-area-inset-top)) 18px 13px;background:rgba(8,9,13,.88);
+backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border-bottom:1px solid rgba(255,255,255,.05);
+display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:5}
+.logo{font-size:25px;font-weight:800;letter-spacing:-1px;background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);
+-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub,.muted{font-size:12px;color:var(--muted)}
+.avatar{width:40px;height:40px;border-radius:50%;background:linear-gradient(145deg,#f0c9c8,#9587ef);
+color:#111;display:grid;place-items:center;font-weight:900;border:1px solid rgba(255,255,255,.3)}
+.page{display:none;padding:16px}.page.active{display:block}
+.page h3{font-size:18px;margin:20px 2px 10px;letter-spacing:-.3px}
+.card{background:linear-gradient(145deg,#15161d,#101117);border:1px solid var(--line);border-radius:22px;padding:15px;margin:11px 0;
+box-shadow:0 10px 30px rgba(0,0,0,.16)}
+.hero{position:relative;overflow:hidden;background:
+radial-gradient(circle at 85% 15%,rgba(164,139,255,.52),transparent 31%),
+radial-gradient(circle at 5% 100%,rgba(239,199,200,.35),transparent 42%),
+linear-gradient(145deg,#171626,#0f1017);border:1px solid rgba(255,255,255,.09);border-radius:28px;padding:24px 20px;margin:8px 0 22px}
+.hero:after{content:"♪";position:absolute;right:20px;bottom:-24px;font-size:120px;font-weight:900;color:rgba(255,255,255,.045);transform:rotate(-10deg)}
+.hero small{color:#d7d0ff;font-weight:700}.hero h1{font-size:29px;line-height:1.25;margin:10px 0 20px;letter-spacing:-1px}
+.btn{border:1px solid var(--line);border-radius:14px;padding:11px 14px;font-weight:800;background:#1c1d25;color:#eee}
+.btn:active{transform:scale(.98)}.black{background:var(--accent);color:#171318;border-color:transparent}
+.field{width:100%;padding:14px;background:#15161d;color:#fff;border:1px solid var(--line);border-radius:15px;font-size:15px;margin:6px 0;outline:none}
+.field:focus{border-color:#8f82df;box-shadow:0 0 0 3px rgba(143,130,223,.12)}
+.field::placeholder{color:#6f707b}
+.row{display:flex;gap:12px;align-items:center}.grow{flex:1}
+.cover{width:68px;height:68px;flex:0 0 68px;border-radius:15px;background:
+linear-gradient(145deg,rgba(239,199,200,.95),rgba(132,116,223,.9));display:grid;place-items:center;font-size:30px;
+box-shadow:0 8px 24px rgba(117,97,210,.15)}
+.song{font-weight:850;font-size:16px}.artist{font-size:13px;color:#b4b4bd;margin-top:4px}.time{font-size:11px;color:#777985;margin-top:5px}
+.bottom{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(430px,100%);height:calc(72px + env(safe-area-inset-bottom));
+padding-bottom:env(safe-area-inset-bottom);background:rgba(12,13,18,.92);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+border-top:1px solid rgba(255,255,255,.07);display:flex;justify-content:space-around;align-items:center;z-index:10}
+.nav{border:0;background:none;color:#777985;font-weight:700;font-size:10px;min-width:58px;padding:8px 4px}
+.nav:first-line{font-size:20px}.hidden{display:none!important}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.72);display:none;align-items:flex-end;z-index:20;backdrop-filter:blur(7px)}
+.sheet{width:min(430px,100%);margin:auto;background:#111218;border:1px solid #2a2b35;border-bottom:0;border-radius:28px 28px 0 0;padding:22px 20px calc(24px + env(safe-area-inset-bottom))}
+.sheet:before{content:"";display:block;width:42px;height:5px;border-radius:99px;background:#3a3b44;margin:-10px auto 18px}
+.toast{position:fixed;bottom:95px;left:50%;transform:translateX(-50%);background:#f1d1d1;color:#171318;padding:11px 17px;border-radius:22px;display:none;z-index:30;font-weight:800}
+#stories{scrollbar-width:none}#stories::-webkit-scrollbar{display:none}
+.story{min-width:66px;text-align:center;font-size:10px;color:#a9a9b3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.storyIcon{width:58px;height:58px;border:2px solid transparent;border-radius:50%;display:grid;place-items:center;font-size:24px;margin:auto auto 6px;
+background:linear-gradient(#111218,#111218) padding-box,linear-gradient(135deg,#efc7c8,#9d8cff) border-box}
+.likeOn{background:#efd0d1;color:#23191d;border-color:transparent}.error{color:#ff9aa8}
+#auth{padding-top:44px}#auth:before{content:"Melory";display:block;font-size:46px;font-weight:850;letter-spacing:-2px;
+background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);-webkit-background-clip:text;background-clip:text;color:transparent;margin-bottom:3px}
+#auth h1{font-size:18px;color:#a8a8b1;font-weight:500;margin:0 0 24px}
+#auth h1{font-size:0}#auth h1:after{content:"Every memory has a melody.";font-size:15px}
+#calendar .card{padding:14px}
+#calendarGrid>div{color:#aaa}
+#calendarGrid>div[style*="aspect-ratio"]{background:#15161d!important;border:1px solid #22242d;border-radius:12px!important;color:#ddd}
+#growth .card{padding:28px 16px}
+#growthBar{background:linear-gradient(90deg,#efc7c8,#9d8cff)!important}
+#profilePage>.card{padding:24px 15px}
+#mine .card{border-radius:18px}
+@media(min-width:431px){.app{box-shadow:0 0 70px rgba(0,0,0,.5)}}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 <div class="app">
-<header><div><div class="logo">Mood 🎵</div><div class="sub">人を通して、音楽と出会う</div></div><div class="avatar" id="av">?</div></header>
+<header><div><div class="logo">Melory</div><div class="sub">Every memory has a melody.</div></div><div class="avatar" id="av">?</div></header>
 <section id="auth" class="page"><h1>Moodへようこそ</h1><input id="email" class="field" type="email" placeholder="メール"><input id="pass" class="field" type="password" placeholder="パスワード"><input id="uname" class="field" placeholder="ユーザー名（新規登録時）"><button class="btn black" onclick="signup()">新規登録</button> <button class="btn" onclick="login()">ログイン</button><p id="msg" class="muted"></p></section>
-<section id="home" class="page"><h3>Stories</h3><div id="stories" style="display:flex;gap:12px;overflow-x:auto;padding-bottom:12px"></div><div class="hero"><small>今日のMood</small><h1>今の気分を、<br>1曲で残そう。</h1><button class="btn" onclick="openPost()">＋ 今日の1曲を投稿</button></div><h3>Feed</h3><div id="feed"></div></section>
+<section id="home" class="page"><h3>Friends today</h3><div id="stories" style="display:flex;gap:12px;overflow-x:auto;padding-bottom:12px"></div><div class="hero"><small>TODAY'S MELODY</small><h1>今日という一日を、<br>1曲で残そう。</h1><button class="btn" onclick="openPost()">＋ 今日の1曲</button></div><h3>Today's feed</h3><div id="feed"></div></section>
 <section id="people" class="page"><h3>ユーザー検索</h3><input id="uq" class="field" placeholder="ユーザー名を検索" oninput="users()"><div id="ulist"></div></section>
-<section id="calendar" class="page"><h3>My Music Calendar</h3><div class="card"><div class="row"><button class="btn" onclick="monthMove(-1)">‹</button><b id="monthLabel" class="grow" style="text-align:center"></b><button class="btn" onclick="monthMove(1)">›</button></div><div id="calendarGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:14px"></div></div></section>
-<section id="growth" class="page"><h3>Music Character</h3><div class="card" style="text-align:center"><div id="creature" style="font-size:78px">🌱</div><h2 id="level">Lv.1</h2><div style="height:10px;background:#eee;border-radius:10px;overflow:hidden"><div id="growthBar" style="height:100%;background:#111;width:10%"></div></div><p id="growthText" class="muted"></p></div></section>
+<section id="calendar" class="page"><h3>My Melory</h3><div class="card"><div class="row"><button class="btn" onclick="monthMove(-1)">‹</button><b id="monthLabel" class="grow" style="text-align:center"></b><button class="btn" onclick="monthMove(1)">›</button></div><div id="calendarGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:14px"></div></div></section>
+<section id="growth" class="page"><h3>My Growth</h3><div class="card" style="text-align:center"><div id="creature" style="font-size:78px">🌱</div><h2 id="level">Lv.1</h2><div style="height:10px;background:#eee;border-radius:10px;overflow:hidden"><div id="growthBar" style="height:100%;background:#111;width:10%"></div></div><p id="growthText" class="muted"></p></div></section>
 <section id="profilePage" class="page"><div class="card" style="text-align:center"><div class="avatar" id="pav" style="width:74px;height:74px;margin:auto">?</div><h2 id="pname"></h2><div><b id="pc">0</b> Posts　<b id="fc">0</b> Followers　<b id="fg">0</b> Following</div></div><button class="btn" onclick="logout()">ログアウト</button><div id="mine"></div></section>
 </div>
 <nav id="nav" class="bottom hidden"><button class="nav" onclick="go('home')">⌂<br>Feed</button><button class="nav" onclick="go('people')">⌕<br>People</button><button class="nav" onclick="go('calendar')">▦<br>Calendar</button><button class="nav" onclick="go('growth')">◉<br>Character</button><button class="nav" onclick="go('profilePage')">●<br>Profile</button></nav>
-<div id="postModal" class="modal"><div class="sheet"><h2>今日の1曲</h2><input id="song" class="field" placeholder="曲名"><input id="artist" class="field" placeholder="アーティスト"><input id="mood" class="field" placeholder="ひとこと"><button class="btn black" onclick="postMood()">投稿</button> <button class="btn" onclick="closePost()">閉じる</button></div></div><div id="toast" class="toast"></div>
+<div id="postModal" class="modal"><div class="sheet"><h2>今日を、1曲で。</h2><input id="song" class="field" placeholder="曲名"><input id="artist" class="field" placeholder="アーティスト"><input id="mood" class="field" placeholder="ひとこと"><button class="btn black" onclick="postMood()">投稿</button> <button class="btn" onclick="closePost()">閉じる</button></div></div><div id="toast" class="toast"></div>
 <script>
 let sb,me,prof,allPosts=[],calDate=new Date();
 const SUPABASE_URL='https://oriivnqzxarfxpedlnsx.supabase.co';
@@ -30,22 +94,9 @@ const $=id=>document.getElementById(id);
 function show(id){document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));$(id).classList.add('active')}
 function esc(s=''){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function pop(t){$('toast').textContent=t;$('toast').style.display='block';setTimeout(()=>$('toast').style.display='none',2000)}
-async function ensureProfile(){
-  let r=await sb.from('profiles')
-    .select('*')
-    .eq('id',me.id)
-    .maybeSingle();
-
-  if(r.error) throw r.error;
-
-  prof=r.data;
-
-  if(!prof){
-    throw new Error('プロフィールが見つかりません');
-  }
-}
+async function ensureProfile(){let r=await sb.from('profiles').select('*').eq('id',me.id).maybeSingle();if(r.error)throw r.error;prof=r.data;if(!prof){let n=me.user_metadata?.username||('user_'+me.id.slice(0,8));let x=await sb.from('profiles').insert({id:me.id,username:n,display_name:me.user_metadata?.display_name||n}).select().single();if(x.error)throw x.error;prof=x.data}}
 async function boot(){try{sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);let r=await sb.auth.getSession();if(r.error)throw r.error;if(!r.data.session){$('nav').classList.add('hidden');show('auth');return}me=r.data.session.user;await ensureProfile();start()}catch(e){$('nav').classList.add('hidden');show('auth');$('msg').textContent=e.message}}
-async function signup(){try{let n=$('uname').value.trim();if(n.length<3)throw new Error('ユーザー名は3文字以上にしてね');let r=await sb.auth.signUp({email:$('email').value.trim(),password:$('pass').value,options:{emailRedirectTo:APP_URL,data:{username:n,display_name:n}}});if(r.error)throw r.error;if(!r.data.session){$('msg').textContent='確認メールを開いてからMoodに戻ってログインしてね';return}me=r.data.user;await ensureProfile();start()}catch(e){$('msg').textContent=e.message}}
+async function signup(){try{let n=$('uname').value.trim();if(n.length<3)throw new Error('ユーザー名は3文字以上にしてね');let r=await sb.auth.signUp({email:$('email').value.trim(),password:$('pass').value,options:{emailRedirectTo:APP_URL,data:{username:n,display_name:n}}});if(r.error)throw r.error;if(!r.data.session){$('msg').textContent='確認メールを開いてからMeloryに戻ってログインしてね';return}me=r.data.user;await ensureProfile();start()}catch(e){$('msg').textContent=e.message}}
 async function login(){try{$('msg').textContent='ログイン中…';let r=await sb.auth.signInWithPassword({email:$('email').value.trim(),password:$('pass').value});if(r.error)throw r.error;me=r.data.user;await ensureProfile();$('msg').textContent='';start()}catch(e){$('msg').textContent=e.message}}
 function start(){$('nav').classList.remove('hidden');$('av').textContent=(prof?.username||'?').slice(0,2).toUpperCase();go('home')}
 function go(id){show(id);if(id==='home')feed();if(id==='people')users();if(id==='profilePage')myprofile();if(id==='calendar')renderCalendar();if(id==='growth')renderGrowth();scrollTo(0,0)}

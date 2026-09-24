@@ -106,7 +106,7 @@ background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);-webkit-background-clip:t
   <div class="chatComposer"><input id="chatInput" class="field" placeholder="メッセージを入力" onkeydown="if(event.key==='Enter')sendMessage()"><button class="btn black" onclick="sendMessage()">送信</button></div>
 </div>
 <script>
-let sb,me,prof,allPosts=[],calDate=new Date(),activeConversation=null,activeChatUser=null;
+let sb,me,prof,allPosts=[],calDate=new Date(),activeConversation=null,activeChatUser=null,messageChannel=null;
 const SUPABASE_URL='https://oriivnqzxarfxpedlnsx.supabase.co';
 const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9yaWl2bnF6eGFyZnhwZWRsbnN4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1NDU3MDgsImV4cCI6MjEwNTEyMTcwOH0.b-fE0dc4hB-s2DEFq4LE025BRW85BfZKi5xCEQJsQ8c';
 const APP_URL='https://rzsootu.github.io/-music-sns-demo/';
@@ -162,18 +162,57 @@ async function openChatWith(otherId){
     $('chatAv').textContent=(activeChatUser.username||'?').slice(0,2).toUpperCase();
     $('chatPage').classList.add('open');
     await loadMessages();
+    subscribeToMessages();
   }catch(e){pop(e.message)}
 }
 function closeChat(){
   $('chatPage').classList.remove('open');
+  if(messageChannel){sb.removeChannel(messageChannel);messageChannel=null}
   activeConversation=null;activeChatUser=null;
 }
+
+function subscribeToMessages(){
+  if(!activeConversation)return;
+  if(messageChannel){sb.removeChannel(messageChannel);messageChannel=null}
+  const conversationId=String(activeConversation.id);
+  messageChannel=sb
+    .channel('messages-'+conversationId)
+    .on(
+      'postgres_changes',
+      {
+        event:'INSERT',
+        schema:'public',
+        table:'messages',
+        filter:`conversation_id=eq.${conversationId}`
+      },
+      payload=>{
+        if(!activeConversation||String(payload.new.conversation_id)!==String(activeConversation.id))return;
+        appendMessage(payload.new);
+      }
+    )
+    .subscribe();
+}
+function appendMessage(m){
+  const empty=$('chatMessages').querySelector('.muted');
+  if(empty&&$('chatMessages').children.length===1)$('chatMessages').innerHTML='';
+  if($('chatMessages').querySelector(`[data-message-id="${m.id}"]`))return;
+  const row=document.createElement('div');
+  row.className='bubbleRow '+(m.sender_id===me.id?'mine':'');
+  row.dataset.messageId=m.id;
+  const bubble=document.createElement('div');
+  bubble.className='bubble';
+  bubble.textContent=m.message_text||'';
+  row.appendChild(bubble);
+  $('chatMessages').appendChild(row);
+  $('chatMessages').scrollTop=$('chatMessages').scrollHeight;
+}
+
 async function loadMessages(){
   if(!activeConversation)return;
   let r=await sb.from('messages').select('id,sender_id,message_text,created_at')
     .eq('conversation_id',activeConversation.id).order('created_at',{ascending:true});
   if(r.error){$('chatMessages').innerHTML='<div class="card error">'+esc(r.error.message)+'</div>';return}
-  $('chatMessages').innerHTML=(r.data||[]).map(m=>`<div class="bubbleRow ${m.sender_id===me.id?'mine':''}"><div class="bubble">${esc(m.message_text)}</div></div>`).join('')||'<div class="muted" style="text-align:center;margin-top:30px">最初のメッセージを送ってみよう</div>';
+  $('chatMessages').innerHTML=(r.data||[]).map(m=>`<div class="bubbleRow ${m.sender_id===me.id?'mine':''}" data-message-id="${m.id}"><div class="bubble">${esc(m.message_text)}</div></div>`).join('')||'<div class="muted" style="text-align:center;margin-top:30px">最初のメッセージを送ってみよう</div>';
   $('chatMessages').scrollTop=$('chatMessages').scrollHeight;
 }
 async function sendMessage(){

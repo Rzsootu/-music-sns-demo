@@ -13,7 +13,8 @@
 html{background:#050609}
 body{margin:0;background:radial-gradient(circle at top,#171526 0,#090a0f 38%,#050609 100%);
 font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",Arial;color:var(--text)}
-button,input{font:inherit}
+button,input,textarea{font:inherit}
+textarea{resize:vertical}
 button{cursor:pointer}
 .app{max-width:430px;min-height:100vh;margin:auto;background:linear-gradient(180deg,#0b0c12 0%,#08090d 100%);padding-bottom:96px}
 header{padding:calc(15px + env(safe-area-inset-top)) 18px 13px;background:rgba(8,9,13,.88);
@@ -179,10 +180,34 @@ background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);-webkit-background-clip:t
 <section id="calendar" class="page"><h3>My Melory</h3><div class="card"><div class="row"><button class="btn" onclick="monthMove(-1)">‹</button><b id="monthLabel" class="grow" style="text-align:center"></b><button class="btn" onclick="monthMove(1)">›</button></div><div id="calendarGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:14px"></div></div></section>
 <section id="growth" class="page"><h3>My Growth</h3><div class="card" style="text-align:center"><div id="creature" style="font-size:78px">🌱</div><h2 id="level">Lv.1</h2><div style="height:10px;background:#eee;border-radius:10px;overflow:hidden"><div id="growthBar" style="height:100%;background:#111;width:10%"></div></div><p id="growthText" class="muted"></p></div></section>
 <section id="messages" class="page"><h3>Messages</h3><div id="chatList"><div class="card muted">チャットを読み込み中…</div></div></section>
-<section id="profilePage" class="page"><div class="card" style="text-align:center"><div class="avatar" id="pav" style="width:74px;height:74px;margin:auto">?</div><h2 id="pname"></h2><div><b id="pc">0</b> Posts　<span style="cursor:pointer" onclick="openFollowList('followers')"><b id="fc">0</b> Followers</span>　<span style="cursor:pointer" onclick="openFollowList('following')"><b id="fg">0</b> Following</span></div></div>
+<section id="profilePage" class="page"><div class="card" style="text-align:center">
+<div class="avatar" id="pav" style="width:74px;height:74px;margin:auto">?</div>
+<h2 id="pname"></h2>
+<div id="pusername" class="muted" style="margin-top:-8px"></div>
+<p id="pbio" style="white-space:pre-wrap;line-height:1.5"></p>
+<div><b id="pc">0</b> Posts　<span style="cursor:pointer" onclick="openFollowList('followers')"><b id="fc">0</b> Followers</span>　<span style="cursor:pointer" onclick="openFollowList('following')"><b id="fg">0</b> Following</span></div>
+<button class="btn" style="margin-top:14px;width:100%" onclick="openEditProfile()">プロフィールを編集</button>
+</div>
 <div id="followRequestEntry" class="card row" style="cursor:pointer" onclick="openFollowRequests()"><div class="grow"><b>フォローリクエスト</b><div class="muted" style="margin-top:4px">届いた申請を確認</div></div><span id="followRequestBadge" class="requestBadge hidden">0</span><span class="muted" style="font-size:20px">›</span></div>
 <div class="card privacyRow"><div><b>🔒 非公開アカウント</b><div id="privacyText" class="muted" style="margin-top:5px">公開中</div></div><label class="switch"><input id="privacyToggle" type="checkbox" onchange="togglePrivacy(this)"><span class="slider"></span></label></div>
 <button class="btn" onclick="logout()">ログアウト</button><div id="mine"></div></section>
+
+<section id="editProfilePage" class="page">
+  <div class="row" style="margin-top:8px">
+    <button class="btn" onclick="go('profilePage')">‹</button>
+    <h3 style="margin:0">プロフィールを編集</h3>
+  </div>
+  <div class="card">
+    <label class="muted">表示名</label>
+    <input id="editDisplayName" class="field" placeholder="表示名">
+    <label class="muted">ユーザー名</label>
+    <input id="editUsername" class="field" placeholder="username">
+    <label class="muted">自己紹介</label>
+    <textarea id="editBio" class="field" rows="5" maxlength="150" placeholder="自己紹介を書いてみよう"></textarea>
+    <div class="muted" style="text-align:right;margin-top:4px"><span id="bioCount">0</span>/150</div>
+    <button id="saveProfileBtn" class="btn black" style="width:100%;margin-top:12px" onclick="saveProfile()">保存</button>
+  </div>
+</section>
 <section id="followListPage" class="page"><div class="row" style="margin-top:8px"><button class="btn" onclick="go('profilePage')">‹</button><h3 id="followListTitle" style="margin:0">Followers</h3></div><div id="followList"></div></section>
 <section id="followRequestsPage" class="page">
   <div class="row" style="margin-top:8px"><button class="btn" onclick="go('profilePage')">‹</button><h3 style="margin:0">フォローリクエスト</h3></div>
@@ -193,7 +218,7 @@ background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);-webkit-background-clip:t
   <div class="card" style="text-align:center">
     <div class="avatar" id="opav" style="width:78px;height:78px;margin:auto">?</div>
     <h2 id="opname" style="margin-bottom:3px"></h2>
-    <div id="opusername" class="muted"></div>
+    <div id="opusername" class="muted"></div><p id="opbio" style="white-space:pre-wrap;line-height:1.5"></p>
     <div class="publicStats">
       <div><b id="oppc">0</b><span class="muted">Posts</span></div>
       <div><b id="opfc">0</b><span class="muted">Followers</span></div>
@@ -298,7 +323,7 @@ async function openPublicProfile(id,back='people'){
     scrollTo(0,0);
 
     let [u,posts,followers,following,followState,requestState]=await Promise.all([
-      sb.from('profiles').select('id,username,display_name,is_private').eq('id',id).single(),
+      sb.from('profiles').select('id,username,display_name,bio,is_private').eq('id',id).single(),
       sb.from('posts').select('id,song_title,artist_name,mood_text,created_at').eq('user_id',id).order('created_at',{ascending:false}),
       sb.from('follows').select('*',{count:'exact',head:true}).eq('following_id',id),
       sb.from('follows').select('*',{count:'exact',head:true}).eq('follower_id',id),
@@ -312,6 +337,7 @@ async function openPublicProfile(id,back='people'){
     $('opav').textContent=(publicProfileUser.username||'?').slice(0,2).toUpperCase();
     $('opname').textContent=publicProfileUser.display_name||publicProfileUser.username||'User';
     $('opusername').textContent='@'+(publicProfileUser.username||'user');
+    $('opbio').textContent=publicProfileUser.bio||'';
     $('oppc').textContent=(posts.data||[]).length;
     $('opfc').textContent=followers.count||0;
     $('opfg').textContent=following.count||0;
@@ -437,13 +463,79 @@ async function openHashtag(encodedTag){
 function backFromHashtag(){go('home')}
 
 async function myprofile(){
-let pr=await sb.from('profiles').select('is_private').eq('id',me.id).single();
-if(!pr.error){prof.is_private=!!pr.data?.is_private;$('privacyToggle').checked=prof.is_private;$('privacyText').textContent=prof.is_private?'非公開':'公開中'}
-let reqCount=await sb.from('follow_requests').select('*',{count:'exact',head:true}).eq('target_id',me.id);
-const rc=reqCount.count||0;
-$('followRequestBadge').textContent=rc;
-$('followRequestBadge').classList.toggle('hidden',rc===0);
-let [a,b,c,d]=await Promise.all([sb.from('posts').select('*',{count:'exact',head:true}).eq('user_id',me.id),sb.from('follows').select('*',{count:'exact',head:true}).eq('following_id',me.id),sb.from('follows').select('*',{count:'exact',head:true}).eq('follower_id',me.id),sb.from('posts').select('*').eq('user_id',me.id).order('created_at',{ascending:false})]);$('pname').textContent=prof.display_name||prof.username;$('pav').textContent=(prof.username||'?').slice(0,2).toUpperCase();$('pc').textContent=a.count||0;$('fc').textContent=b.count||0;$('fg').textContent=c.count||0;$('mine').innerHTML=(d.data||[]).map(p=>`<div class="card"><b>${esc(p.song_title||'')}</b><div class="artist">${esc(p.artist_name||'')}</div><p>${hashtagText(p.mood_text||'')}</p></div>`).join('')||'<div class="card">まだ投稿なし</div>'}
+  let pr=await sb.from('profiles').select('id,username,display_name,bio,is_private').eq('id',me.id).single();
+  if(!pr.error){
+    prof=pr.data;
+    $('privacyToggle').checked=!!prof.is_private;
+    $('privacyText').textContent=prof.is_private?'非公開':'公開中';
+  }
+  let reqCount=await sb.from('follow_requests').select('*',{count:'exact',head:true}).eq('target_id',me.id);
+  const rc=reqCount.count||0;
+  $('followRequestBadge').textContent=rc;
+  $('followRequestBadge').classList.toggle('hidden',rc===0);
+
+  let [a,b,c,d]=await Promise.all([
+    sb.from('posts').select('*',{count:'exact',head:true}).eq('user_id',me.id),
+    sb.from('follows').select('*',{count:'exact',head:true}).eq('following_id',me.id),
+    sb.from('follows').select('*',{count:'exact',head:true}).eq('follower_id',me.id),
+    sb.from('posts').select('*').eq('user_id',me.id).order('created_at',{ascending:false})
+  ]);
+
+  $('pname').textContent=prof.display_name||prof.username;
+  $('pusername').textContent='@'+(prof.username||'user');
+  $('pbio').textContent=prof.bio||'';
+  $('pav').textContent=(prof.username||'?').slice(0,2).toUpperCase();
+  $('pc').textContent=a.count||0;
+  $('fc').textContent=b.count||0;
+  $('fg').textContent=c.count||0;
+  $('mine').innerHTML=(d.data||[]).map(p=>`<div class="card"><b>${esc(p.song_title||'')}</b><div class="artist">${esc(p.artist_name||'')}</div><p>${hashtagText(p.mood_text||'')}</p></div>`).join('')||'<div class="card">まだ投稿なし</div>';
+}
+
+function openEditProfile(){
+  $('editDisplayName').value=prof?.display_name||'';
+  $('editUsername').value=prof?.username||'';
+  $('editBio').value=prof?.bio||'';
+  $('bioCount').textContent=$('editBio').value.length;
+  show('editProfilePage');
+  scrollTo(0,0);
+}
+
+$('editBio')?.addEventListener('input',()=>{
+  $('bioCount').textContent=$('editBio').value.length;
+});
+
+async function saveProfile(){
+  const displayName=$('editDisplayName').value.trim();
+  const username=$('editUsername').value.trim();
+  const bio=$('editBio').value.trim();
+
+  if(!displayName)return pop('表示名を入力して');
+  if(username.length<3)return pop('ユーザー名は3文字以上にしてね');
+  if(!/^[A-Za-z0-9._]+$/.test(username))return pop('ユーザー名は英数字・._だけ使えるよ');
+
+  const b=$('saveProfileBtn');
+  b.disabled=true;
+  b.textContent='保存中…';
+
+  let r=await sb.from('profiles')
+    .update({display_name:displayName,username,bio})
+    .eq('id',me.id)
+    .select('id,username,display_name,bio,is_private')
+    .single();
+
+  b.disabled=false;
+  b.textContent='保存';
+
+  if(r.error){
+    if(String(r.error.message).toLowerCase().includes('duplicate'))return pop('そのユーザー名はすでに使われてる');
+    return pop(r.error.message);
+  }
+
+  prof=r.data;
+  $('av').textContent=(prof.username||'?').slice(0,2).toUpperCase();
+  pop('プロフィールを更新した');
+  go('profilePage');
+}
 
 async function togglePrivacy(input){
   const next=!!input.checked;

@@ -83,6 +83,16 @@ background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);-webkit-background-clip:t
 .chatComposer{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(430px,100%);display:flex;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:rgba(12,13,18,.97);border-top:1px solid var(--line)}
 .chatComposer .field{margin:0}
 
+
+.searchUser{display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid rgba(255,255,255,.06);cursor:pointer}
+.searchUser:active{opacity:.72}
+.searchUser .avatar{width:48px;height:48px;flex:0 0 48px}
+.publicStats{display:flex;justify-content:center;gap:24px;margin:18px 0}
+.publicStats>div{text-align:center;min-width:64px}
+.publicStats b{display:block;font-size:18px}
+.profileActions{display:flex;gap:8px;justify-content:center}
+.profileActions .btn{flex:1;max-width:170px}
+
 @media(min-width:431px){.app{box-shadow:0 0 70px rgba(0,0,0,.5)}}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -98,6 +108,25 @@ background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);-webkit-background-clip:t
 <section id="messages" class="page"><h3>Messages</h3><div id="chatList"><div class="card muted">チャットを読み込み中…</div></div></section>
 <section id="profilePage" class="page"><div class="card" style="text-align:center"><div class="avatar" id="pav" style="width:74px;height:74px;margin:auto">?</div><h2 id="pname"></h2><div><b id="pc">0</b> Posts　<span style="cursor:pointer" onclick="openFollowList('followers')"><b id="fc">0</b> Followers</span>　<span style="cursor:pointer" onclick="openFollowList('following')"><b id="fg">0</b> Following</span></div></div><button class="btn" onclick="logout()">ログアウト</button><div id="mine"></div></section>
 <section id="followListPage" class="page"><div class="row" style="margin-top:8px"><button class="btn" onclick="go('profilePage')">‹</button><h3 id="followListTitle" style="margin:0">Followers</h3></div><div id="followList"></div></section>
+<section id="publicProfilePage" class="page">
+  <div class="row" style="margin-top:8px"><button class="btn" onclick="backFromPublicProfile()">‹</button><h3 style="margin:0">Profile</h3></div>
+  <div class="card" style="text-align:center">
+    <div class="avatar" id="opav" style="width:78px;height:78px;margin:auto">?</div>
+    <h2 id="opname" style="margin-bottom:3px"></h2>
+    <div id="opusername" class="muted"></div>
+    <div class="publicStats">
+      <div><b id="oppc">0</b><span class="muted">Posts</span></div>
+      <div><b id="opfc">0</b><span class="muted">Followers</span></div>
+      <div><b id="opfg">0</b><span class="muted">Following</span></div>
+    </div>
+    <div class="profileActions">
+      <button id="opfollow" class="btn black" onclick="togglePublicFollow()">フォロー</button>
+      <button id="opchat" class="btn" onclick="chatFromPublicProfile()">💬 Message</button>
+    </div>
+  </div>
+  <h3>Posts</h3>
+  <div id="opposts"></div>
+</section>
 </div>
 <nav id="nav" class="bottom hidden"><button class="nav" onclick="go('home')">⌂<br>Feed</button><button class="nav" onclick="go('people')">⌕<br>People</button><button class="nav" onclick="go('messages')">💬<br>Chat</button><button class="nav" onclick="go('calendar')">▦<br>Calendar</button><button class="nav" onclick="go('profilePage')">●<br>Profile</button></nav>
 <div id="postModal" class="modal"><div class="sheet"><h2>今日を、1曲で。</h2><input id="song" class="field" placeholder="曲名"><input id="artist" class="field" placeholder="アーティスト"><input id="mood" class="field" placeholder="ひとこと"><button class="btn black" onclick="postMood()">投稿</button> <button class="btn" onclick="closePost()">閉じる</button></div></div><div id="toast" class="toast"></div>
@@ -107,7 +136,7 @@ background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);-webkit-background-clip:t
   <div class="chatComposer"><input id="chatInput" class="field" placeholder="メッセージを入力" onkeydown="if(event.key==='Enter')sendMessage()"><button class="btn black" onclick="sendMessage()">送信</button></div>
 </div>
 <script>
-let sb,me,prof,allPosts=[],calDate=new Date(),activeConversation=null,activeChatUser=null,messageChannel=null;
+let sb,me,prof,allPosts=[],calDate=new Date(),activeConversation=null,activeChatUser=null,messageChannel=null,publicProfileUser=null,publicProfileBack='people';
 const SUPABASE_URL='https://oriivnqzxarfxpedlnsx.supabase.co';
 const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9yaWl2bnF6eGFyZnhwZWRsbnN4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1NDU3MDgsImV4cCI6MjEwNTEyMTcwOH0.b-fE0dc4hB-s2DEFq4LE025BRW85BfZKi5xCEQJsQ8c';
 const APP_URL='https://rzsootu.github.io/-music-sns-demo/';
@@ -125,8 +154,107 @@ async function feed(){let r=await sb.from('posts').select('id,user_id,song_title
 function openPost(){$('postModal').style.display='flex'}function closePost(){$('postModal').style.display='none'}
 async function postMood(){if(!$('song').value.trim())return pop('曲名を入力して');let r=await sb.from('posts').insert({user_id:me.id,song_title:$('song').value.trim(),artist_name:$('artist').value.trim(),mood_text:$('mood').value.trim()});if(r.error)return pop(r.error.message);$('song').value=$('artist').value=$('mood').value='';closePost();await feed();pop('投稿した！')}
 async function like(id,b){let q=await sb.from('likes').select('*').eq('user_id',me.id).eq('post_id',id).maybeSingle();if(q.data){let r=await sb.from('likes').delete().eq('user_id',me.id).eq('post_id',id);if(r.error)return pop(r.error.message);b.textContent='♡ いいね';b.classList.remove('likeOn')}else{let r=await sb.from('likes').insert({user_id:me.id,post_id:id});if(r.error)return pop(r.error.message);b.textContent='♥ いいね';b.classList.add('likeOn')}}
-async function users(){if(!me)return;let q=$('uq').value.trim(),req=sb.from('profiles').select('id,username,display_name').neq('id',me.id).limit(30);if(q)req=req.ilike('username','%'+q+'%');let r=await req;if(r.error){$('ulist').innerHTML='<div class="card error">'+esc(r.error.message)+'</div>';return}let f=await sb.from('follows').select('following_id').eq('follower_id',me.id),set=new Set((f.data||[]).map(x=>x.following_id));$('ulist').innerHTML=(r.data||[]).map(u=>`<div class="card row"><div class="avatar">${esc((u.username||'?').slice(0,2).toUpperCase())}</div><div class="grow"><b>@${esc(u.username)}</b><div class="muted">${esc(u.display_name||'')}</div></div><button class="btn ${set.has(u.id)?'':'black'}" onclick="followUser('${u.id}',this)">${set.has(u.id)?'フォロー中':'フォロー'}</button><button class="btn" onclick="openChatWith('${u.id}')">💬</button></div>`).join('')||'<div class="card">ユーザーが見つかりません</div>'}
+async function users(){
+  if(!me)return;
+  let q=$('uq').value.trim();
+  if(!q){
+    $('ulist').innerHTML='<div class="muted" style="text-align:center;padding:28px 10px">ユーザー名を入力して検索</div>';
+    return;
+  }
+  let r=await sb.from('profiles')
+    .select('id,username,display_name')
+    .neq('id',me.id)
+    .or(`username.ilike.%${q}%,display_name.ilike.%${q}%`)
+    .limit(30);
+  if(r.error){
+    $('ulist').innerHTML='<div class="card error">'+esc(r.error.message)+'</div>';
+    return;
+  }
+  $('ulist').innerHTML=(r.data||[]).map(u=>`
+    <div class="searchUser" onclick="openPublicProfile('${u.id}','people')">
+      <div class="avatar">${esc((u.username||'?').slice(0,2).toUpperCase())}</div>
+      <div class="grow">
+        <b>@${esc(u.username||'user')}</b>
+        <div class="muted">${esc(u.display_name||'')}</div>
+      </div>
+      <div class="muted" style="font-size:20px">›</div>
+    </div>`).join('')||'<div class="muted" style="text-align:center;padding:28px 10px">ユーザーが見つかりません</div>';
+}
 async function followUser(id,b){let q=await sb.from('follows').select('*').eq('follower_id',me.id).eq('following_id',id).maybeSingle();if(q.data){let r=await sb.from('follows').delete().eq('follower_id',me.id).eq('following_id',id);if(r.error)return pop(r.error.message);b.textContent='フォロー';b.classList.add('black')}else{let r=await sb.from('follows').insert({follower_id:me.id,following_id:id});if(r.error)return pop(r.error.message);b.textContent='フォロー中';b.classList.remove('black')}}
+
+async function openPublicProfile(id,back='people'){
+  if(id===me.id){go('profilePage');return}
+  try{
+    publicProfileBack=back;
+    show('publicProfilePage');
+    $('opposts').innerHTML='<div class="card muted">読み込み中…</div>';
+    scrollTo(0,0);
+
+    let [u,posts,followers,following,followState]=await Promise.all([
+      sb.from('profiles').select('id,username,display_name').eq('id',id).single(),
+      sb.from('posts').select('id,song_title,artist_name,mood_text,created_at').eq('user_id',id).order('created_at',{ascending:false}),
+      sb.from('follows').select('*',{count:'exact',head:true}).eq('following_id',id),
+      sb.from('follows').select('*',{count:'exact',head:true}).eq('follower_id',id),
+      sb.from('follows').select('*').eq('follower_id',me.id).eq('following_id',id).maybeSingle()
+    ]);
+    if(u.error)throw u.error;
+    if(posts.error)throw posts.error;
+
+    publicProfileUser=u.data;
+    $('opav').textContent=(publicProfileUser.username||'?').slice(0,2).toUpperCase();
+    $('opname').textContent=publicProfileUser.display_name||publicProfileUser.username||'User';
+    $('opusername').textContent='@'+(publicProfileUser.username||'user');
+    $('oppc').textContent=(posts.data||[]).length;
+    $('opfc').textContent=followers.count||0;
+    $('opfg').textContent=following.count||0;
+    setPublicFollowButton(!!followState.data);
+    $('opposts').innerHTML=(posts.data||[]).map(p=>`
+      <div class="card">
+        <b>${esc(p.song_title||'今日の1曲')}</b>
+        <div class="artist">${esc(p.artist_name||'')}</div>
+        <p>${esc(p.mood_text||'')}</p>
+      </div>`).join('')||'<div class="card muted">まだ投稿なし</div>';
+  }catch(e){
+    $('opposts').innerHTML='<div class="card error">'+esc(e.message)+'</div>';
+  }
+}
+
+function setPublicFollowButton(isFollowing){
+  const b=$('opfollow');
+  b.dataset.following=isFollowing?'1':'0';
+  b.textContent=isFollowing?'フォロー中':'フォロー';
+  b.classList.toggle('black',!isFollowing);
+}
+
+async function togglePublicFollow(){
+  if(!publicProfileUser)return;
+  const id=publicProfileUser.id,b=$('opfollow');
+  const following=b.dataset.following==='1';
+  if(following){
+    let r=await sb.from('follows').delete().eq('follower_id',me.id).eq('following_id',id);
+    if(r.error)return pop(r.error.message);
+    setPublicFollowButton(false);
+  }else{
+    let r=await sb.from('follows').insert({follower_id:me.id,following_id:id});
+    if(r.error)return pop(r.error.message);
+    setPublicFollowButton(true);
+  }
+  let c=await sb.from('follows').select('*',{count:'exact',head:true}).eq('following_id',id);
+  $('opfc').textContent=c.count||0;
+}
+
+function backFromPublicProfile(){
+  if(publicProfileBack==='followers'||publicProfileBack==='following'){
+    openFollowList(publicProfileBack);
+  }else{
+    go('people');
+  }
+}
+
+function chatFromPublicProfile(){
+  if(publicProfileUser)openChatWith(publicProfileUser.id);
+}
+
 async function myprofile(){let [a,b,c,d]=await Promise.all([sb.from('posts').select('*',{count:'exact',head:true}).eq('user_id',me.id),sb.from('follows').select('*',{count:'exact',head:true}).eq('following_id',me.id),sb.from('follows').select('*',{count:'exact',head:true}).eq('follower_id',me.id),sb.from('posts').select('*').eq('user_id',me.id).order('created_at',{ascending:false})]);$('pname').textContent=prof.display_name||prof.username;$('pav').textContent=(prof.username||'?').slice(0,2).toUpperCase();$('pc').textContent=a.count||0;$('fc').textContent=b.count||0;$('fg').textContent=c.count||0;$('mine').innerHTML=(d.data||[]).map(p=>`<div class="card"><b>${esc(p.song_title||'')}</b><div class="artist">${esc(p.artist_name||'')}</div><p>${esc(p.mood_text||'')}</p></div>`).join('')||'<div class="card">まだ投稿なし</div>'}
 async function openFollowList(type){
   try{
@@ -144,7 +272,7 @@ async function openFollowList(type){
     }
     let p=await sb.from('profiles').select('id,username,display_name').in('id',ids);
     if(p.error)throw p.error;
-    $('followList').innerHTML=(p.data||[]).map(u=>`<div class="card row"><div class="avatar">${esc((u.username||'?').slice(0,2).toUpperCase())}</div><div class="grow"><b>@${esc(u.username||'user')}</b><div class="muted">${esc(u.display_name||'')}</div></div>${u.id!==me.id?`<button class="btn" onclick="openChatWith('${u.id}')">💬</button>`:''}</div>`).join('');
+    $('followList').innerHTML=(p.data||[]).map(u=>`<div class="card row" style="cursor:pointer" onclick="openPublicProfile('${u.id}','${type}')"><div class="avatar">${esc((u.username||'?').slice(0,2).toUpperCase())}</div><div class="grow"><b>@${esc(u.username||'user')}</b><div class="muted">${esc(u.display_name||'')}</div></div>${u.id!==me.id?`<button class="btn" onclick="event.stopPropagation();openChatWith('${u.id}')">💬</button>`:''}</div>`).join('');
   }catch(e){$('followList').innerHTML='<div class="card error">'+esc(e.message)+'</div>'}
 }
 

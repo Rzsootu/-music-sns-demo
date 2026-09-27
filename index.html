@@ -253,6 +253,7 @@ const APP_URL='https://rzsootu.github.io/-music-sns-demo/';
 const $=id=>document.getElementById(id);
 function show(id){document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));$(id).classList.add('active')}
 function esc(s=''){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function avatarText(u={}){const s=(u.display_name||u.username||'?').trim();return s.slice(0,2).toUpperCase()}
 
 function hashtagText(s=''){
   const safe=esc(s);
@@ -280,7 +281,7 @@ function hideSplash(){
 async function boot(){hideSplash();try{sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);let r=await sb.auth.getSession();if(r.error)throw r.error;if(!r.data.session){$('nav').classList.add('hidden');show('auth');return}me=r.data.session.user;await ensureProfile();start()}catch(e){$('nav').classList.add('hidden');show('auth');$('msg').textContent=e.message}}
 async function signup(){try{let n=$('uname').value.trim();if(n.length<3)throw new Error('ユーザー名は3文字以上にしてね');let r=await sb.auth.signUp({email:$('email').value.trim(),password:$('pass').value,options:{emailRedirectTo:APP_URL,data:{username:n,display_name:n}}});if(r.error)throw r.error;if(!r.data.session){$('msg').textContent='確認メールを開いてからMeloryに戻ってログインしてね';return}me=r.data.user;await ensureProfile();start()}catch(e){$('msg').textContent=e.message}}
 async function login(){try{$('msg').textContent='ログイン中…';let r=await sb.auth.signInWithPassword({email:$('email').value.trim(),password:$('pass').value});if(r.error)throw r.error;me=r.data.user;await ensureProfile();$('msg').textContent='';start()}catch(e){$('msg').textContent=e.message}}
-function start(){$('nav').classList.remove('hidden');$('av').textContent=(prof?.username||'?').slice(0,2).toUpperCase();go('home')}
+function start(){$('nav').classList.remove('hidden');$('av').textContent=avatarText(prof);go('home')}
 function go(id){show(id);if(id==='home')feed();if(id==='people')users();if(id==='messages')loadChats();if(id==='profilePage')myprofile();if(id==='calendar')renderCalendar();if(id==='growth')renderGrowth();scrollTo(0,0)}
 async function feed(){let r=await sb.from('posts').select('id,user_id,song_title,artist_name,mood_text,created_at').order('created_at',{ascending:false});if(r.error){$('feed').innerHTML='<div class="card error">'+esc(r.error.message)+'</div>';return}allPosts=r.data||[];let ids=[...new Set(allPosts.map(x=>x.user_id))],pm={};if(ids.length){let p=await sb.from('profiles').select('id,username').in('id',ids);(p.data||[]).forEach(x=>pm[x.id]=x)}let lr=await sb.from('likes').select('post_id').eq('user_id',me.id),liked=new Set((lr.data||[]).map(x=>String(x.post_id)));$('feed').innerHTML=allPosts.map(p=>`<div class="card"><div class="row"><div class="cover">🎵</div><div class="grow"><div class="song">${esc(p.song_title||'今日の1曲')}</div><div class="artist">${esc(p.artist_name||'')}</div><div class="time">@${esc(pm[p.user_id]?.username||'user')}</div></div></div><p>${hashtagText(p.mood_text||'')}</p><button class="btn ${liked.has(String(p.id))?'likeOn':''}" onclick="like('${p.id}',this)">${liked.has(String(p.id))?'♥ いいね':'♡ いいね'}</button> ${p.user_id!==me.id?`<button class="btn" onclick="openChatWith('${p.user_id}')">💬 Chat</button>`:''}</div>`).join('')||'<div class="card">まだ投稿なし</div>';renderCalendar();renderGrowth()}
 function openPost(){$('postModal').style.display='flex'}function closePost(){$('postModal').style.display='none'}
@@ -304,7 +305,7 @@ async function users(){
   }
   $('ulist').innerHTML=(r.data||[]).map(u=>`
     <div class="searchUser" onclick="openPublicProfile('${u.id}','people')">
-      <div class="avatar">${esc((u.username||'?').slice(0,2).toUpperCase())}</div>
+      <div class="avatar">${esc(avatarText(u))}</div>
       <div class="grow">
         <b>@${esc(u.username||'user')}</b>
         <div class="muted">${esc(u.display_name||'')}</div>
@@ -334,7 +335,7 @@ async function openPublicProfile(id,back='people'){
     if(posts.error)throw posts.error;
 
     publicProfileUser=u.data;
-    $('opav').textContent=(publicProfileUser.username||'?').slice(0,2).toUpperCase();
+    $('opav').textContent=avatarText(publicProfileUser);
     $('opname').textContent=publicProfileUser.display_name||publicProfileUser.username||'User';
     $('opusername').textContent='@'+(publicProfileUser.username||'user');
     $('opbio').textContent=publicProfileUser.bio||'';
@@ -484,7 +485,7 @@ async function myprofile(){
   $('pname').textContent=prof.display_name||prof.username;
   $('pusername').textContent='@'+(prof.username||'user');
   $('pbio').textContent=prof.bio||'';
-  $('pav').textContent=(prof.username||'?').slice(0,2).toUpperCase();
+  $('pav').textContent=avatarText(prof);
   $('pc').textContent=a.count||0;
   $('fc').textContent=b.count||0;
   $('fg').textContent=c.count||0;
@@ -532,7 +533,7 @@ async function saveProfile(){
   }
 
   prof=r.data;
-  $('av').textContent=(prof.username||'?').slice(0,2).toUpperCase();
+  $('av').textContent=avatarText(prof);
   pop('プロフィールを更新した');
   go('profilePage');
 }
@@ -571,7 +572,7 @@ async function openFollowRequests(){
     $('followRequestsList').innerHTML=rows.map(x=>{
       const u=pm[x.requester_id]||{username:'user',display_name:''};
       return `<div class="card requestRow" id="req_${x.requester_id}">
-        <div class="avatar">${esc((u.username||'?').slice(0,2).toUpperCase())}</div>
+        <div class="avatar">${esc(avatarText(u))}</div>
         <div class="grow"><b>@${esc(u.username||'user')}</b><div class="muted">${esc(u.display_name||'')}</div></div>
         <div class="requestActions">
           <button class="btn black" onclick="approveFollowRequest('${x.requester_id}')">承認</button>
@@ -614,7 +615,7 @@ async function openFollowList(type){
     }
     let p=await sb.from('profiles').select('id,username,display_name').in('id',ids);
     if(p.error)throw p.error;
-    $('followList').innerHTML=(p.data||[]).map(u=>`<div class="card row" style="cursor:pointer" onclick="openPublicProfile('${u.id}','${type}')"><div class="avatar">${esc((u.username||'?').slice(0,2).toUpperCase())}</div><div class="grow"><b>@${esc(u.username||'user')}</b><div class="muted">${esc(u.display_name||'')}</div></div>${u.id!==me.id?`<button class="btn" onclick="event.stopPropagation();openChatWith('${u.id}')">💬</button>`:''}</div>`).join('');
+    $('followList').innerHTML=(p.data||[]).map(u=>`<div class="card row" style="cursor:pointer" onclick="openPublicProfile('${u.id}','${type}')"><div class="avatar">${esc(avatarText(u))}</div><div class="grow"><b>@${esc(u.username||'user')}</b><div class="muted">${esc(u.display_name||'')}</div></div>${u.id!==me.id?`<button class="btn" onclick="event.stopPropagation();openChatWith('${u.id}')">💬</button>`:''}</div>`).join('');
   }catch(e){$('followList').innerHTML='<div class="card error">'+esc(e.message)+'</div>'}
 }
 
@@ -650,7 +651,7 @@ async function openChatWith(otherId){
     activeChatUser=await getProfileById(otherId);
     activeConversation=await getOrCreateConversation(otherId);
     $('chatName').textContent='@'+(activeChatUser.username||'user');
-    $('chatAv').textContent=(activeChatUser.username||'?').slice(0,2).toUpperCase();
+    $('chatAv').textContent=avatarText(activeChatUser);
     $('chatPage').classList.add('open');
     await loadMessages();
     subscribeToMessages();
@@ -726,7 +727,7 @@ async function loadChats(){
   (p.data||[]).forEach(x=>pm[x.id]=x);
   $('chatList').innerHTML=rows.map(c=>{
     let oid=c.user1_id===me.id?c.user2_id:c.user1_id,u=pm[oid]||{username:'user'};
-    return `<div class="card chatListItem" onclick="openChatWith('${oid}')"><div class="avatar">${esc((u.username||'?').slice(0,2).toUpperCase())}</div><div class="chatMeta"><b>@${esc(u.username||'user')}</b><div class="muted">${esc(u.display_name||'')}</div></div><button class="btn">開く</button></div>`;
+    return `<div class="card chatListItem" onclick="openChatWith('${oid}')"><div class="avatar">${esc(avatarText(u))}</div><div class="chatMeta"><b>@${esc(u.username||'user')}</b><div class="muted">${esc(u.display_name||'')}</div></div><button class="btn">開く</button></div>`;
   }).join('');
 }
 

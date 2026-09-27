@@ -93,6 +93,10 @@ background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);-webkit-background-clip:t
 .profileActions{display:flex;gap:8px;justify-content:center}
 .profileActions .btn{flex:1;max-width:170px}
 
+
+.hashtag{color:#b9adff;font-weight:800;cursor:pointer}
+.hashtag:active{opacity:.7}
+
 @media(min-width:431px){.app{box-shadow:0 0 70px rgba(0,0,0,.5)}}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -127,6 +131,11 @@ background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);-webkit-background-clip:t
   <h3>Posts</h3>
   <div id="opposts"></div>
 </section>
+<section id="hashtagPage" class="page">
+  <div class="row" style="margin-top:8px"><button class="btn" onclick="backFromHashtag()">‹</button><h3 id="hashtagTitle" style="margin:0">#tag</h3></div>
+  <div id="hashtagCount" class="muted" style="margin:12px 2px"></div>
+  <div id="hashtagPosts"></div>
+</section>
 </div>
 <nav id="nav" class="bottom hidden"><button class="nav" onclick="go('home')">⌂<br>Feed</button><button class="nav" onclick="go('people')">⌕<br>People</button><button class="nav" onclick="go('messages')">💬<br>Chat</button><button class="nav" onclick="go('calendar')">▦<br>Calendar</button><button class="nav" onclick="go('profilePage')">●<br>Profile</button></nav>
 <div id="postModal" class="modal"><div class="sheet"><h2>今日を、1曲で。</h2><input id="song" class="field" placeholder="曲名"><input id="artist" class="field" placeholder="アーティスト"><input id="mood" class="field" placeholder="ひとこと"><button class="btn black" onclick="postMood()">投稿</button> <button class="btn" onclick="closePost()">閉じる</button></div></div><div id="toast" class="toast"></div>
@@ -143,6 +152,18 @@ const APP_URL='https://rzsootu.github.io/-music-sns-demo/';
 const $=id=>document.getElementById(id);
 function show(id){document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));$(id).classList.add('active')}
 function esc(s=''){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+
+function hashtagText(s=''){
+  const safe=esc(s);
+  return safe.replace(/(^|[\s　])(#[^\s　#]+)/g,(m,pre,tag)=>{
+    const clean=tag.slice(1);
+    return `${pre}<span class="hashtag" onclick="event.stopPropagation();openHashtag('${encodeURIComponent(clean)}')">#${clean}</span>`;
+  });
+}
+function postCardForTag(p,username='user'){
+  return `<div class="card"><div class="row"><div class="cover">🎵</div><div class="grow"><div class="song">${esc(p.song_title||'今日の1曲')}</div><div class="artist">${esc(p.artist_name||'')}</div><div class="time">@${esc(username)}</div></div></div><p>${hashtagText(p.mood_text||'')}</p></div>`;
+}
+
 function pop(t){$('toast').textContent=t;$('toast').style.display='block';setTimeout(()=>$('toast').style.display='none',2000)}
 async function ensureProfile(){let r=await sb.from('profiles').select('*').eq('id',me.id).maybeSingle();if(r.error)throw r.error;prof=r.data;if(!prof){let n=me.user_metadata?.username||('user_'+me.id.slice(0,8));let x=await sb.from('profiles').insert({id:me.id,username:n,display_name:me.user_metadata?.display_name||n}).select().single();if(x.error)throw x.error;prof=x.data}}
 async function boot(){try{sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);let r=await sb.auth.getSession();if(r.error)throw r.error;if(!r.data.session){$('nav').classList.add('hidden');show('auth');return}me=r.data.session.user;await ensureProfile();start()}catch(e){$('nav').classList.add('hidden');show('auth');$('msg').textContent=e.message}}
@@ -150,7 +171,7 @@ async function signup(){try{let n=$('uname').value.trim();if(n.length<3)throw ne
 async function login(){try{$('msg').textContent='ログイン中…';let r=await sb.auth.signInWithPassword({email:$('email').value.trim(),password:$('pass').value});if(r.error)throw r.error;me=r.data.user;await ensureProfile();$('msg').textContent='';start()}catch(e){$('msg').textContent=e.message}}
 function start(){$('nav').classList.remove('hidden');$('av').textContent=(prof?.username||'?').slice(0,2).toUpperCase();go('home')}
 function go(id){show(id);if(id==='home')feed();if(id==='people')users();if(id==='messages')loadChats();if(id==='profilePage')myprofile();if(id==='calendar')renderCalendar();if(id==='growth')renderGrowth();scrollTo(0,0)}
-async function feed(){let r=await sb.from('posts').select('id,user_id,song_title,artist_name,mood_text,created_at').order('created_at',{ascending:false});if(r.error){$('feed').innerHTML='<div class="card error">'+esc(r.error.message)+'</div>';return}allPosts=r.data||[];let ids=[...new Set(allPosts.map(x=>x.user_id))],pm={};if(ids.length){let p=await sb.from('profiles').select('id,username').in('id',ids);(p.data||[]).forEach(x=>pm[x.id]=x)}let lr=await sb.from('likes').select('post_id').eq('user_id',me.id),liked=new Set((lr.data||[]).map(x=>String(x.post_id)));$('feed').innerHTML=allPosts.map(p=>`<div class="card"><div class="row"><div class="cover">🎵</div><div class="grow"><div class="song">${esc(p.song_title||'今日の1曲')}</div><div class="artist">${esc(p.artist_name||'')}</div><div class="time">@${esc(pm[p.user_id]?.username||'user')}</div></div></div><p>${esc(p.mood_text||'')}</p><button class="btn ${liked.has(String(p.id))?'likeOn':''}" onclick="like('${p.id}',this)">${liked.has(String(p.id))?'♥ いいね':'♡ いいね'}</button> ${p.user_id!==me.id?`<button class="btn" onclick="openChatWith('${p.user_id}')">💬 Chat</button>`:''}</div>`).join('')||'<div class="card">まだ投稿なし</div>';renderStories(pm);renderCalendar();renderGrowth()}
+async function feed(){let r=await sb.from('posts').select('id,user_id,song_title,artist_name,mood_text,created_at').order('created_at',{ascending:false});if(r.error){$('feed').innerHTML='<div class="card error">'+esc(r.error.message)+'</div>';return}allPosts=r.data||[];let ids=[...new Set(allPosts.map(x=>x.user_id))],pm={};if(ids.length){let p=await sb.from('profiles').select('id,username').in('id',ids);(p.data||[]).forEach(x=>pm[x.id]=x)}let lr=await sb.from('likes').select('post_id').eq('user_id',me.id),liked=new Set((lr.data||[]).map(x=>String(x.post_id)));$('feed').innerHTML=allPosts.map(p=>`<div class="card"><div class="row"><div class="cover">🎵</div><div class="grow"><div class="song">${esc(p.song_title||'今日の1曲')}</div><div class="artist">${esc(p.artist_name||'')}</div><div class="time">@${esc(pm[p.user_id]?.username||'user')}</div></div></div><p>${hashtagText(p.mood_text||'')}</p><button class="btn ${liked.has(String(p.id))?'likeOn':''}" onclick="like('${p.id}',this)">${liked.has(String(p.id))?'♥ いいね':'♡ いいね'}</button> ${p.user_id!==me.id?`<button class="btn" onclick="openChatWith('${p.user_id}')">💬 Chat</button>`:''}</div>`).join('')||'<div class="card">まだ投稿なし</div>';renderStories(pm);renderCalendar();renderGrowth()}
 function openPost(){$('postModal').style.display='flex'}function closePost(){$('postModal').style.display='none'}
 async function postMood(){if(!$('song').value.trim())return pop('曲名を入力して');let r=await sb.from('posts').insert({user_id:me.id,song_title:$('song').value.trim(),artist_name:$('artist').value.trim(),mood_text:$('mood').value.trim()});if(r.error)return pop(r.error.message);$('song').value=$('artist').value=$('mood').value='';closePost();await feed();pop('投稿した！')}
 async function like(id,b){let q=await sb.from('likes').select('*').eq('user_id',me.id).eq('post_id',id).maybeSingle();if(q.data){let r=await sb.from('likes').delete().eq('user_id',me.id).eq('post_id',id);if(r.error)return pop(r.error.message);b.textContent='♡ いいね';b.classList.remove('likeOn')}else{let r=await sb.from('likes').insert({user_id:me.id,post_id:id});if(r.error)return pop(r.error.message);b.textContent='♥ いいね';b.classList.add('likeOn')}}
@@ -212,7 +233,7 @@ async function openPublicProfile(id,back='people'){
       <div class="card">
         <b>${esc(p.song_title||'今日の1曲')}</b>
         <div class="artist">${esc(p.artist_name||'')}</div>
-        <p>${esc(p.mood_text||'')}</p>
+        <p>${hashtagText(p.mood_text||'')}</p>
       </div>`).join('')||'<div class="card muted">まだ投稿なし</div>';
   }catch(e){
     $('opposts').innerHTML='<div class="card error">'+esc(e.message)+'</div>';
@@ -255,7 +276,44 @@ function chatFromPublicProfile(){
   if(publicProfileUser)openChatWith(publicProfileUser.id);
 }
 
-async function myprofile(){let [a,b,c,d]=await Promise.all([sb.from('posts').select('*',{count:'exact',head:true}).eq('user_id',me.id),sb.from('follows').select('*',{count:'exact',head:true}).eq('following_id',me.id),sb.from('follows').select('*',{count:'exact',head:true}).eq('follower_id',me.id),sb.from('posts').select('*').eq('user_id',me.id).order('created_at',{ascending:false})]);$('pname').textContent=prof.display_name||prof.username;$('pav').textContent=(prof.username||'?').slice(0,2).toUpperCase();$('pc').textContent=a.count||0;$('fc').textContent=b.count||0;$('fg').textContent=c.count||0;$('mine').innerHTML=(d.data||[]).map(p=>`<div class="card"><b>${esc(p.song_title||'')}</b><div class="artist">${esc(p.artist_name||'')}</div><p>${esc(p.mood_text||'')}</p></div>`).join('')||'<div class="card">まだ投稿なし</div>'}
+
+async function openHashtag(encodedTag){
+  const tag=decodeURIComponent(encodedTag);
+  try{
+    $('hashtagTitle').textContent='#'+tag;
+    $('hashtagCount').textContent='読み込み中…';
+    $('hashtagPosts').innerHTML='';
+    show('hashtagPage'); scrollTo(0,0);
+
+    let r=await sb.from('posts')
+      .select('id,user_id,song_title,artist_name,mood_text,created_at')
+      .ilike('mood_text','%#'+tag+'%')
+      .order('created_at',{ascending:false});
+    if(r.error)throw r.error;
+
+    const exact=(r.data||[]).filter(p=>{
+      const tags=(p.mood_text||'').match(/#[^\s　#]+/g)||[];
+      return tags.some(x=>x.slice(1).toLocaleLowerCase()===tag.toLocaleLowerCase());
+    });
+
+    let pm={};
+    const ids=[...new Set(exact.map(p=>p.user_id))];
+    if(ids.length){
+      let u=await sb.from('profiles').select('id,username').in('id',ids);
+      if(u.error)throw u.error;
+      (u.data||[]).forEach(x=>pm[x.id]=x.username);
+    }
+
+    $('hashtagCount').textContent=`${exact.length}件の投稿`;
+    $('hashtagPosts').innerHTML=exact.map(p=>postCardForTag(p,pm[p.user_id]||'user')).join('')||'<div class="card muted">このハッシュタグの投稿はまだありません</div>';
+  }catch(e){
+    $('hashtagCount').textContent='';
+    $('hashtagPosts').innerHTML='<div class="card error">'+esc(e.message)+'</div>';
+  }
+}
+function backFromHashtag(){go('home')}
+
+async function myprofile(){let [a,b,c,d]=await Promise.all([sb.from('posts').select('*',{count:'exact',head:true}).eq('user_id',me.id),sb.from('follows').select('*',{count:'exact',head:true}).eq('following_id',me.id),sb.from('follows').select('*',{count:'exact',head:true}).eq('follower_id',me.id),sb.from('posts').select('*').eq('user_id',me.id).order('created_at',{ascending:false})]);$('pname').textContent=prof.display_name||prof.username;$('pav').textContent=(prof.username||'?').slice(0,2).toUpperCase();$('pc').textContent=a.count||0;$('fc').textContent=b.count||0;$('fg').textContent=c.count||0;$('mine').innerHTML=(d.data||[]).map(p=>`<div class="card"><b>${esc(p.song_title||'')}</b><div class="artist">${esc(p.artist_name||'')}</div><p>${hashtagText(p.mood_text||'')}</p></div>`).join('')||'<div class="card">まだ投稿なし</div>'}
 async function openFollowList(type){
   try{
     $('followListTitle').textContent=type==='followers'?'Followers':'Following';

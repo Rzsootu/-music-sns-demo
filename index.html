@@ -97,6 +97,15 @@ background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);-webkit-background-clip:t
 .hashtag{color:#b9adff;font-weight:800;cursor:pointer}
 .hashtag:active{opacity:.7}
 
+.privacyRow{display:flex;align-items:center;justify-content:space-between;gap:14px;text-align:left}
+.switch{position:relative;width:52px;height:30px;flex:0 0 52px}
+.switch input{opacity:0;width:0;height:0}
+.slider{position:absolute;inset:0;background:#30313b;border-radius:999px;transition:.2s;border:1px solid var(--line)}
+.slider:before{content:"";position:absolute;width:24px;height:24px;left:2px;top:2px;background:#fff;border-radius:50%;transition:.2s}
+.switch input:checked+.slider{background:#9d8cff}
+.switch input:checked+.slider:before{transform:translateX(22px)}
+
+
 @media(min-width:431px){.app{box-shadow:0 0 70px rgba(0,0,0,.5)}}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -110,7 +119,9 @@ background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);-webkit-background-clip:t
 <section id="calendar" class="page"><h3>My Melory</h3><div class="card"><div class="row"><button class="btn" onclick="monthMove(-1)">‹</button><b id="monthLabel" class="grow" style="text-align:center"></b><button class="btn" onclick="monthMove(1)">›</button></div><div id="calendarGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:14px"></div></div></section>
 <section id="growth" class="page"><h3>My Growth</h3><div class="card" style="text-align:center"><div id="creature" style="font-size:78px">🌱</div><h2 id="level">Lv.1</h2><div style="height:10px;background:#eee;border-radius:10px;overflow:hidden"><div id="growthBar" style="height:100%;background:#111;width:10%"></div></div><p id="growthText" class="muted"></p></div></section>
 <section id="messages" class="page"><h3>Messages</h3><div id="chatList"><div class="card muted">チャットを読み込み中…</div></div></section>
-<section id="profilePage" class="page"><div class="card" style="text-align:center"><div class="avatar" id="pav" style="width:74px;height:74px;margin:auto">?</div><h2 id="pname"></h2><div><b id="pc">0</b> Posts　<span style="cursor:pointer" onclick="openFollowList('followers')"><b id="fc">0</b> Followers</span>　<span style="cursor:pointer" onclick="openFollowList('following')"><b id="fg">0</b> Following</span></div></div><button class="btn" onclick="logout()">ログアウト</button><div id="mine"></div></section>
+<section id="profilePage" class="page"><div class="card" style="text-align:center"><div class="avatar" id="pav" style="width:74px;height:74px;margin:auto">?</div><h2 id="pname"></h2><div><b id="pc">0</b> Posts　<span style="cursor:pointer" onclick="openFollowList('followers')"><b id="fc">0</b> Followers</span>　<span style="cursor:pointer" onclick="openFollowList('following')"><b id="fg">0</b> Following</span></div></div>
+<div class="card privacyRow"><div><b>🔒 非公開アカウント</b><div id="privacyText" class="muted" style="margin-top:5px">公開中</div></div><label class="switch"><input id="privacyToggle" type="checkbox" onchange="togglePrivacy(this)"><span class="slider"></span></label></div>
+<button class="btn" onclick="logout()">ログアウト</button><div id="mine"></div></section>
 <section id="followListPage" class="page"><div class="row" style="margin-top:8px"><button class="btn" onclick="go('profilePage')">‹</button><h3 id="followListTitle" style="margin:0">Followers</h3></div><div id="followList"></div></section>
 <section id="publicProfilePage" class="page">
   <div class="row" style="margin-top:8px"><button class="btn" onclick="backFromPublicProfile()">‹</button><h3 style="margin:0">Profile</h3></div>
@@ -313,7 +324,26 @@ async function openHashtag(encodedTag){
 }
 function backFromHashtag(){go('home')}
 
-async function myprofile(){let [a,b,c,d]=await Promise.all([sb.from('posts').select('*',{count:'exact',head:true}).eq('user_id',me.id),sb.from('follows').select('*',{count:'exact',head:true}).eq('following_id',me.id),sb.from('follows').select('*',{count:'exact',head:true}).eq('follower_id',me.id),sb.from('posts').select('*').eq('user_id',me.id).order('created_at',{ascending:false})]);$('pname').textContent=prof.display_name||prof.username;$('pav').textContent=(prof.username||'?').slice(0,2).toUpperCase();$('pc').textContent=a.count||0;$('fc').textContent=b.count||0;$('fg').textContent=c.count||0;$('mine').innerHTML=(d.data||[]).map(p=>`<div class="card"><b>${esc(p.song_title||'')}</b><div class="artist">${esc(p.artist_name||'')}</div><p>${hashtagText(p.mood_text||'')}</p></div>`).join('')||'<div class="card">まだ投稿なし</div>'}
+async function myprofile(){
+let pr=await sb.from('profiles').select('is_private').eq('id',me.id).single();
+if(!pr.error){prof.is_private=!!pr.data?.is_private;$('privacyToggle').checked=prof.is_private;$('privacyText').textContent=prof.is_private?'非公開':'公開中'}
+let [a,b,c,d]=await Promise.all([sb.from('posts').select('*',{count:'exact',head:true}).eq('user_id',me.id),sb.from('follows').select('*',{count:'exact',head:true}).eq('following_id',me.id),sb.from('follows').select('*',{count:'exact',head:true}).eq('follower_id',me.id),sb.from('posts').select('*').eq('user_id',me.id).order('created_at',{ascending:false})]);$('pname').textContent=prof.display_name||prof.username;$('pav').textContent=(prof.username||'?').slice(0,2).toUpperCase();$('pc').textContent=a.count||0;$('fc').textContent=b.count||0;$('fg').textContent=c.count||0;$('mine').innerHTML=(d.data||[]).map(p=>`<div class="card"><b>${esc(p.song_title||'')}</b><div class="artist">${esc(p.artist_name||'')}</div><p>${hashtagText(p.mood_text||'')}</p></div>`).join('')||'<div class="card">まだ投稿なし</div>'}
+
+async function togglePrivacy(input){
+  const next=!!input.checked;
+  input.disabled=true;
+  let r=await sb.from('profiles').update({is_private:next}).eq('id',me.id);
+  if(r.error){
+    input.checked=!next;
+    input.disabled=false;
+    return pop(r.error.message);
+  }
+  prof.is_private=next;
+  $('privacyText').textContent=next?'非公開':'公開中';
+  input.disabled=false;
+  pop(next?'非公開アカウントに変更した':'公開アカウントに変更した');
+}
+
 async function openFollowList(type){
   try{
     $('followListTitle').textContent=type==='followers'?'Followers':'Following';

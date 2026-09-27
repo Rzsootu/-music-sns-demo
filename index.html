@@ -105,6 +105,14 @@ background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);-webkit-background-clip:t
 .switch input:checked+.slider{background:#9d8cff}
 .switch input:checked+.slider:before{transform:translateX(22px)}
 
+.requestRow{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+.requestRow:last-child{border-bottom:0}
+.requestActions{display:flex;gap:7px;flex-wrap:wrap}
+.requestBadge{min-width:22px;height:22px;padding:0 7px;border-radius:999px;background:var(--accent);color:#171318;display:inline-grid;place-items:center;font-size:12px;font-weight:900}
+.privateNotice{text-align:center;padding:34px 18px}
+.privateNotice .lock{font-size:36px;margin-bottom:10px}
+
+
 
 @media(min-width:431px){.app{box-shadow:0 0 70px rgba(0,0,0,.5)}}
 </style>
@@ -120,9 +128,14 @@ background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);-webkit-background-clip:t
 <section id="growth" class="page"><h3>My Growth</h3><div class="card" style="text-align:center"><div id="creature" style="font-size:78px">🌱</div><h2 id="level">Lv.1</h2><div style="height:10px;background:#eee;border-radius:10px;overflow:hidden"><div id="growthBar" style="height:100%;background:#111;width:10%"></div></div><p id="growthText" class="muted"></p></div></section>
 <section id="messages" class="page"><h3>Messages</h3><div id="chatList"><div class="card muted">チャットを読み込み中…</div></div></section>
 <section id="profilePage" class="page"><div class="card" style="text-align:center"><div class="avatar" id="pav" style="width:74px;height:74px;margin:auto">?</div><h2 id="pname"></h2><div><b id="pc">0</b> Posts　<span style="cursor:pointer" onclick="openFollowList('followers')"><b id="fc">0</b> Followers</span>　<span style="cursor:pointer" onclick="openFollowList('following')"><b id="fg">0</b> Following</span></div></div>
+<div id="followRequestEntry" class="card row" style="cursor:pointer" onclick="openFollowRequests()"><div class="grow"><b>フォローリクエスト</b><div class="muted" style="margin-top:4px">届いた申請を確認</div></div><span id="followRequestBadge" class="requestBadge hidden">0</span><span class="muted" style="font-size:20px">›</span></div>
 <div class="card privacyRow"><div><b>🔒 非公開アカウント</b><div id="privacyText" class="muted" style="margin-top:5px">公開中</div></div><label class="switch"><input id="privacyToggle" type="checkbox" onchange="togglePrivacy(this)"><span class="slider"></span></label></div>
 <button class="btn" onclick="logout()">ログアウト</button><div id="mine"></div></section>
 <section id="followListPage" class="page"><div class="row" style="margin-top:8px"><button class="btn" onclick="go('profilePage')">‹</button><h3 id="followListTitle" style="margin:0">Followers</h3></div><div id="followList"></div></section>
+<section id="followRequestsPage" class="page">
+  <div class="row" style="margin-top:8px"><button class="btn" onclick="go('profilePage')">‹</button><h3 style="margin:0">フォローリクエスト</h3></div>
+  <div id="followRequestsList"><div class="card muted">読み込み中…</div></div>
+</section>
 <section id="publicProfilePage" class="page">
   <div class="row" style="margin-top:8px"><button class="btn" onclick="backFromPublicProfile()">‹</button><h3 style="margin:0">Profile</h3></div>
   <div class="card" style="text-align:center">
@@ -222,12 +235,13 @@ async function openPublicProfile(id,back='people'){
     $('opposts').innerHTML='<div class="card muted">読み込み中…</div>';
     scrollTo(0,0);
 
-    let [u,posts,followers,following,followState]=await Promise.all([
-      sb.from('profiles').select('id,username,display_name').eq('id',id).single(),
+    let [u,posts,followers,following,followState,requestState]=await Promise.all([
+      sb.from('profiles').select('id,username,display_name,is_private').eq('id',id).single(),
       sb.from('posts').select('id,song_title,artist_name,mood_text,created_at').eq('user_id',id).order('created_at',{ascending:false}),
       sb.from('follows').select('*',{count:'exact',head:true}).eq('following_id',id),
       sb.from('follows').select('*',{count:'exact',head:true}).eq('follower_id',id),
-      sb.from('follows').select('*').eq('follower_id',me.id).eq('following_id',id).maybeSingle()
+      sb.from('follows').select('*').eq('follower_id',me.id).eq('following_id',id).maybeSingle(),
+      sb.from('follow_requests').select('*').eq('requester_id',me.id).eq('target_id',id).maybeSingle()
     ]);
     if(u.error)throw u.error;
     if(posts.error)throw posts.error;
@@ -239,38 +253,74 @@ async function openPublicProfile(id,back='people'){
     $('oppc').textContent=(posts.data||[]).length;
     $('opfc').textContent=followers.count||0;
     $('opfg').textContent=following.count||0;
-    setPublicFollowButton(!!followState.data);
-    $('opposts').innerHTML=(posts.data||[]).map(p=>`
-      <div class="card">
-        <b>${esc(p.song_title||'今日の1曲')}</b>
-        <div class="artist">${esc(p.artist_name||'')}</div>
-        <p>${hashtagText(p.mood_text||'')}</p>
-      </div>`).join('')||'<div class="card muted">まだ投稿なし</div>';
+    setPublicFollowButton({
+      following:!!followState.data,
+      requested:!!requestState.data,
+      isPrivate:!!publicProfileUser.is_private
+    });
+    const visiblePosts=posts.data||[];
+    if(publicProfileUser.is_private&&!followState.data){
+      $('opposts').innerHTML='<div class="card privateNotice"><div class="lock">🔒</div><b>このアカウントは非公開です</b><div class="muted" style="margin-top:8px">フォローが承認されると投稿を見られます。</div></div>';
+    }else{
+      $('opposts').innerHTML=visiblePosts.map(p=>`
+        <div class="card">
+          <b>${esc(p.song_title||'今日の1曲')}</b>
+          <div class="artist">${esc(p.artist_name||'')}</div>
+          <p>${hashtagText(p.mood_text||'')}</p>
+        </div>`).join('')||'<div class="card muted">まだ投稿なし</div>';
+    }
   }catch(e){
     $('opposts').innerHTML='<div class="card error">'+esc(e.message)+'</div>';
   }
 }
 
-function setPublicFollowButton(isFollowing){
+function setPublicFollowButton(state){
   const b=$('opfollow');
-  b.dataset.following=isFollowing?'1':'0';
-  b.textContent=isFollowing?'フォロー中':'フォロー';
-  b.classList.toggle('black',!isFollowing);
+  const following=!!state.following,requested=!!state.requested,isPrivate=!!state.isPrivate;
+  b.dataset.following=following?'1':'0';
+  b.dataset.requested=requested?'1':'0';
+  b.dataset.private=isPrivate?'1':'0';
+  if(following){
+    b.textContent='フォロー中';
+    b.classList.remove('black');
+  }else if(requested){
+    b.textContent='リクエスト済み';
+    b.classList.remove('black');
+  }else{
+    b.textContent='フォロー';
+    b.classList.add('black');
+  }
 }
 
 async function togglePublicFollow(){
   if(!publicProfileUser)return;
   const id=publicProfileUser.id,b=$('opfollow');
   const following=b.dataset.following==='1';
+  const requested=b.dataset.requested==='1';
+  const isPrivate=b.dataset.private==='1';
+
   if(following){
     let r=await sb.from('follows').delete().eq('follower_id',me.id).eq('following_id',id);
     if(r.error)return pop(r.error.message);
-    setPublicFollowButton(false);
+    setPublicFollowButton({following:false,requested:false,isPrivate});
+    pop('フォローを解除した');
+  }else if(requested){
+    let r=await sb.from('follow_requests').delete().eq('requester_id',me.id).eq('target_id',id);
+    if(r.error)return pop(r.error.message);
+    setPublicFollowButton({following:false,requested:false,isPrivate});
+    pop('フォローリクエストを取り消した');
+  }else if(isPrivate){
+    let r=await sb.from('follow_requests').insert({requester_id:me.id,target_id:id});
+    if(r.error)return pop(r.error.message);
+    setPublicFollowButton({following:false,requested:true,isPrivate:true});
+    pop('フォローリクエストを送った');
   }else{
     let r=await sb.from('follows').insert({follower_id:me.id,following_id:id});
     if(r.error)return pop(r.error.message);
-    setPublicFollowButton(true);
+    setPublicFollowButton({following:true,requested:false,isPrivate:false});
+    pop('フォローした');
   }
+
   let c=await sb.from('follows').select('*',{count:'exact',head:true}).eq('following_id',id);
   $('opfc').textContent=c.count||0;
 }
@@ -327,6 +377,10 @@ function backFromHashtag(){go('home')}
 async function myprofile(){
 let pr=await sb.from('profiles').select('is_private').eq('id',me.id).single();
 if(!pr.error){prof.is_private=!!pr.data?.is_private;$('privacyToggle').checked=prof.is_private;$('privacyText').textContent=prof.is_private?'非公開':'公開中'}
+let reqCount=await sb.from('follow_requests').select('*',{count:'exact',head:true}).eq('target_id',me.id);
+const rc=reqCount.count||0;
+$('followRequestBadge').textContent=rc;
+$('followRequestBadge').classList.toggle('hidden',rc===0);
 let [a,b,c,d]=await Promise.all([sb.from('posts').select('*',{count:'exact',head:true}).eq('user_id',me.id),sb.from('follows').select('*',{count:'exact',head:true}).eq('following_id',me.id),sb.from('follows').select('*',{count:'exact',head:true}).eq('follower_id',me.id),sb.from('posts').select('*').eq('user_id',me.id).order('created_at',{ascending:false})]);$('pname').textContent=prof.display_name||prof.username;$('pav').textContent=(prof.username||'?').slice(0,2).toUpperCase();$('pc').textContent=a.count||0;$('fc').textContent=b.count||0;$('fg').textContent=c.count||0;$('mine').innerHTML=(d.data||[]).map(p=>`<div class="card"><b>${esc(p.song_title||'')}</b><div class="artist">${esc(p.artist_name||'')}</div><p>${hashtagText(p.mood_text||'')}</p></div>`).join('')||'<div class="card">まだ投稿なし</div>'}
 
 async function togglePrivacy(input){
@@ -342,6 +396,52 @@ async function togglePrivacy(input){
   $('privacyText').textContent=next?'非公開':'公開中';
   input.disabled=false;
   pop(next?'非公開アカウントに変更した':'公開アカウントに変更した');
+}
+
+
+async function openFollowRequests(){
+  try{
+    show('followRequestsPage');scrollTo(0,0);
+    $('followRequestsList').innerHTML='<div class="card muted">読み込み中…</div>';
+    let r=await sb.from('follow_requests').select('requester_id,created_at').eq('target_id',me.id).order('created_at',{ascending:false});
+    if(r.error)throw r.error;
+    const rows=r.data||[];
+    if(!rows.length){
+      $('followRequestsList').innerHTML='<div class="card muted">フォローリクエストはありません</div>';
+      return;
+    }
+    const ids=[...new Set(rows.map(x=>x.requester_id))];
+    let p=await sb.from('profiles').select('id,username,display_name').in('id',ids);
+    if(p.error)throw p.error;
+    const pm={};(p.data||[]).forEach(x=>pm[x.id]=x);
+    $('followRequestsList').innerHTML=rows.map(x=>{
+      const u=pm[x.requester_id]||{username:'user',display_name:''};
+      return `<div class="card requestRow" id="req_${x.requester_id}">
+        <div class="avatar">${esc((u.username||'?').slice(0,2).toUpperCase())}</div>
+        <div class="grow"><b>@${esc(u.username||'user')}</b><div class="muted">${esc(u.display_name||'')}</div></div>
+        <div class="requestActions">
+          <button class="btn black" onclick="approveFollowRequest('${x.requester_id}')">承認</button>
+          <button class="btn" onclick="rejectFollowRequest('${x.requester_id}')">削除</button>
+        </div>
+      </div>`;
+    }).join('');
+  }catch(e){
+    $('followRequestsList').innerHTML='<div class="card error">'+esc(e.message)+'</div>';
+  }
+}
+
+async function approveFollowRequest(requesterId){
+  let r=await sb.rpc('approve_follow_request',{p_requester_id:requesterId});
+  if(r.error)return pop(r.error.message);
+  pop('フォローリクエストを承認した');
+  await openFollowRequests();
+}
+
+async function rejectFollowRequest(requesterId){
+  let r=await sb.from('follow_requests').delete().eq('requester_id',requesterId).eq('target_id',me.id);
+  if(r.error)return pop(r.error.message);
+  pop('フォローリクエストを削除した');
+  await openFollowRequests();
 }
 
 async function openFollowList(type){

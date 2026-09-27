@@ -114,11 +114,64 @@ background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);-webkit-background-clip:t
 
 
 
+
+#splashScreen{
+  position:fixed;inset:0;z-index:100;background:
+  radial-gradient(circle at 50% 20%,rgba(157,140,255,.22),transparent 34%),
+  radial-gradient(circle at 50% 82%,rgba(239,199,200,.16),transparent 38%),
+  #08090d;
+  display:flex;align-items:center;justify-content:center;
+  transition:opacity .45s ease,visibility .45s ease;
+}
+#splashScreen.hide{opacity:0;visibility:hidden;pointer-events:none}
+.splashInner{text-align:center;padding:24px}
+.splashMark{
+  width:92px;height:92px;border-radius:28px;margin:0 auto 24px;
+  display:grid;place-items:center;font-size:48px;font-weight:900;color:#171318;
+  background:linear-gradient(145deg,#f0c9c8,#9d8cff);
+  animation:splashFloat 1.5s ease-in-out infinite;
+  box-shadow:0 18px 55px rgba(125,105,220,.22)
+}
+.splashLogo{
+  font-size:42px;font-weight:850;letter-spacing:-2px;
+  background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  opacity:0;transform:translateY(12px);animation:splashIn .7s .15s forwards
+}
+.splashTag{
+  margin-top:8px;color:#aaa9b5;font-size:14px;letter-spacing:.2px;
+  opacity:0;transform:translateY(10px);animation:splashIn .7s .4s forwards
+}
+.splashWave{display:flex;gap:5px;justify-content:center;align-items:end;height:26px;margin-top:28px}
+.splashWave span{
+  width:4px;border-radius:99px;background:linear-gradient(#efc7c8,#9d8cff);
+  animation:wave 1s ease-in-out infinite
+}
+.splashWave span:nth-child(1){height:8px;animation-delay:0s}
+.splashWave span:nth-child(2){height:18px;animation-delay:.12s}
+.splashWave span:nth-child(3){height:25px;animation-delay:.24s}
+.splashWave span:nth-child(4){height:14px;animation-delay:.36s}
+.splashWave span:nth-child(5){height:21px;animation-delay:.48s}
+@keyframes splashFloat{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-8px) rotate(2deg)}}
+@keyframes splashIn{to{opacity:1;transform:translateY(0)}}
+@keyframes wave{0%,100%{transform:scaleY(.55);opacity:.55}50%{transform:scaleY(1);opacity:1}}
+@media(prefers-reduced-motion:reduce){
+  .splashMark,.splashWave span,.splashLogo,.splashTag{animation:none;opacity:1;transform:none}
+}
+
 @media(min-width:431px){.app{box-shadow:0 0 70px rgba(0,0,0,.5)}}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
+<div id="splashScreen" aria-label="Melory 起動画面">
+  <div class="splashInner">
+    <div class="splashMark">♪</div>
+    <div class="splashLogo">Melory</div>
+    <div class="splashTag">Every memory has a melody.</div>
+    <div class="splashWave" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
+  </div>
+</div>
 <div class="app">
 <header><div><div class="logo">Melory</div><div class="sub">Every memory has a melody.</div></div><div class="avatar" id="av">?</div></header>
 <section id="auth" class="page"><h1>Moodへようこそ</h1><input id="email" class="field" type="email" placeholder="メール"><input id="pass" class="field" type="password" placeholder="パスワード"><input id="uname" class="field" placeholder="ユーザー名（新規登録時）"><button class="btn black" onclick="signup()">新規登録</button> <button class="btn" onclick="login()">ログイン</button><p id="msg" class="muted"></p></section>
@@ -190,7 +243,17 @@ function postCardForTag(p,username='user'){
 
 function pop(t){$('toast').textContent=t;$('toast').style.display='block';setTimeout(()=>$('toast').style.display='none',2000)}
 async function ensureProfile(){let r=await sb.from('profiles').select('*').eq('id',me.id).maybeSingle();if(r.error)throw r.error;prof=r.data;if(!prof){let n=me.user_metadata?.username||('user_'+me.id.slice(0,8));let x=await sb.from('profiles').insert({id:me.id,username:n,display_name:me.user_metadata?.display_name||n}).select().single();if(x.error)throw x.error;prof=x.data}}
-async function boot(){try{sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);let r=await sb.auth.getSession();if(r.error)throw r.error;if(!r.data.session){$('nav').classList.add('hidden');show('auth');return}me=r.data.session.user;await ensureProfile();start()}catch(e){$('nav').classList.add('hidden');show('auth');$('msg').textContent=e.message}}
+
+function hideSplash(){
+  const s=$('splashScreen');
+  if(!s)return;
+  setTimeout(()=>{
+    s.classList.add('hide');
+    setTimeout(()=>s.remove(),500);
+  },1700);
+}
+
+async function boot(){hideSplash();try{sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);let r=await sb.auth.getSession();if(r.error)throw r.error;if(!r.data.session){$('nav').classList.add('hidden');show('auth');return}me=r.data.session.user;await ensureProfile();start()}catch(e){$('nav').classList.add('hidden');show('auth');$('msg').textContent=e.message}}
 async function signup(){try{let n=$('uname').value.trim();if(n.length<3)throw new Error('ユーザー名は3文字以上にしてね');let r=await sb.auth.signUp({email:$('email').value.trim(),password:$('pass').value,options:{emailRedirectTo:APP_URL,data:{username:n,display_name:n}}});if(r.error)throw r.error;if(!r.data.session){$('msg').textContent='確認メールを開いてからMeloryに戻ってログインしてね';return}me=r.data.user;await ensureProfile();start()}catch(e){$('msg').textContent=e.message}}
 async function login(){try{$('msg').textContent='ログイン中…';let r=await sb.auth.signInWithPassword({email:$('email').value.trim(),password:$('pass').value});if(r.error)throw r.error;me=r.data.user;await ensureProfile();$('msg').textContent='';start()}catch(e){$('msg').textContent=e.message}}
 function start(){$('nav').classList.remove('hidden');$('av').textContent=(prof?.username||'?').slice(0,2).toUpperCase();go('home')}

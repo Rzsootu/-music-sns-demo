@@ -90,6 +90,28 @@ background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);-webkit-background-clip:t
 }
 .calendarCell:not(.hasPost) .calendarDay{color:#c8c8d0;text-shadow:none}
 
+.calendarCell.hasPost{cursor:pointer}
+.calendarCell.hasPost:active{transform:scale(.97)}
+.memoryHero{
+  position:relative;aspect-ratio:1;border-radius:26px;overflow:hidden;
+  background-size:cover;background-position:center;
+  border:1px solid rgba(255,255,255,.10);
+  box-shadow:0 20px 55px rgba(0,0,0,.32);
+}
+.memoryHero:after{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(180deg,rgba(0,0,0,.15),rgba(0,0,0,.02) 58%,rgba(0,0,0,.48));
+}
+.memoryDate{
+  position:absolute;left:18px;bottom:16px;z-index:1;
+  font-size:18px;font-weight:850;color:white;
+  text-shadow:0 2px 8px rgba(0,0,0,.6)
+}
+.memoryNav{display:flex;gap:10px;margin:14px 0}
+.memoryNav .btn{flex:1}
+.postDate{font-size:11px;color:#858691;margin-top:5px}
+
+
 #growth .card{padding:28px 16px}
 #growthBar{background:linear-gradient(90deg,#efc7c8,#9d8cff)!important}
 #profilePage>.card{padding:24px 15px}
@@ -208,6 +230,20 @@ background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);-webkit-background-clip:t
 </section>
 <section id="people" class="page"><h3>ユーザー検索</h3><input id="uq" class="field" placeholder="ユーザー名を検索" oninput="users()"><div id="ulist"></div></section>
 <section id="calendar" class="page"><h3>My Melory</h3><div class="card"><div class="row"><button class="btn" onclick="monthMove(-1)">‹</button><b id="monthLabel" class="grow" style="text-align:center"></b><button class="btn" onclick="monthMove(1)">›</button></div><div id="calendarGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:14px"></div></div></section>
+<section id="memoryPage" class="page">
+  <div class="row" style="margin-top:8px">
+    <button class="btn" onclick="go('calendar')">‹</button>
+    <h3 style="margin:0">Memory</h3>
+  </div>
+  <div id="memoryHero" class="memoryHero">
+    <div id="memoryDate" class="memoryDate"></div>
+  </div>
+  <div class="memoryNav">
+    <button id="memoryPrev" class="btn" onclick="moveMemory(-1)">‹ 前の記録</button>
+    <button id="memoryNext" class="btn" onclick="moveMemory(1)">次の記録 ›</button>
+  </div>
+  <div id="memoryPosts"></div>
+</section>
 <section id="growth" class="page"><h3>My Growth</h3><div class="card" style="text-align:center"><div id="creature" style="font-size:78px">🌱</div><h2 id="level">Lv.1</h2><div style="height:10px;background:#eee;border-radius:10px;overflow:hidden"><div id="growthBar" style="height:100%;background:#111;width:10%"></div></div><p id="growthText" class="muted"></p></div></section>
 <section id="messages" class="page"><h3>Messages</h3><div id="chatList"><div class="card muted">チャットを読み込み中…</div></div></section>
 <section id="profilePage" class="page"><div class="card" style="text-align:center">
@@ -313,6 +349,19 @@ async function signup(){try{let n=$('uname').value.trim();if(n.length<3)throw ne
 async function login(){try{$('msg').textContent='ログイン中…';let r=await sb.auth.signInWithPassword({email:$('email').value.trim(),password:$('pass').value});if(r.error)throw r.error;me=r.data.user;await ensureProfile();$('msg').textContent='';start()}catch(e){$('msg').textContent=e.message}}
 function start(){$('nav').classList.remove('hidden');$('av').textContent=avatarText(prof);go('home')}
 function go(id){show(id);if(id==='home')feed();if(id==='people')users();if(id==='messages')loadChats();if(id==='profilePage')myprofile();if(id==='calendar')renderCalendar();if(id==='growth')renderGrowth();scrollTo(0,0)}
+
+function formatPostDate(ts){
+  const d=new Date(ts),now=new Date();
+  const sameDay=(a,b)=>a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate();
+  const yesterday=new Date(now);yesterday.setDate(now.getDate()-1);
+  const hh=String(d.getHours()).padStart(2,'0');
+  const mm=String(d.getMinutes()).padStart(2,'0');
+  if(sameDay(d,now))return `今日 ${hh}:${mm}`;
+  if(sameDay(d,yesterday))return `昨日 ${hh}:${mm}`;
+  if(d.getFullYear()===now.getFullYear())return `${d.getMonth()+1}月${d.getDate()}日 ${hh}:${mm}`;
+  return `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 ${hh}:${mm}`;
+}
+
 async function feed(){
   let r=await sb.from('posts').select('id,user_id,song_title,artist_name,mood_text,created_at').order('created_at',{ascending:false});
   if(r.error){
@@ -343,7 +392,7 @@ async function feed(){
   const todayPosts=allPosts.filter(isToday);
   const recentPosts=allPosts.filter(p=>!isToday(p));
 
-  const renderPost=p=>`<div class="card"><div class="row"><div class="cover">🎵</div><div class="grow"><div class="song">${esc(p.song_title||'今日の1曲')}</div><div class="artist">${esc(p.artist_name||'')}</div><div class="time">@${esc(pm[p.user_id]?.username||'user')}</div></div></div><p>${hashtagText(p.mood_text||'')}</p><button class="btn ${liked.has(String(p.id))?'likeOn':''}" onclick="like('${p.id}',this)">${liked.has(String(p.id))?'♥ いいね':'♡ いいね'}</button> ${p.user_id!==me.id?`<button class="btn" onclick="openChatWith('${p.user_id}')">💬 Chat</button>`:''}</div>`;
+  const renderPost=p=>`<div class="card"><div class="row"><div class="cover">🎵</div><div class="grow"><div class="song">${esc(p.song_title||'今日の1曲')}</div><div class="artist">${esc(p.artist_name||'')}</div><div class="time">@${esc(pm[p.user_id]?.username||'user')}</div><div class="postDate">${esc(formatPostDate(p.created_at))}</div></div></div><p>${hashtagText(p.mood_text||'')}</p><button class="btn ${liked.has(String(p.id))?'likeOn':''}" onclick="like('${p.id}',this)">${liked.has(String(p.id))?'♥ いいね':'♡ いいね'}</button> ${p.user_id!==me.id?`<button class="btn" onclick="openChatWith('${p.user_id}')">💬 Chat</button>`:''}</div>`;
 
   $('feed').innerHTML=todayPosts.map(renderPost).join('')
     || '<div class="card muted">今日の投稿はまだありません</div>';
@@ -695,6 +744,8 @@ function monthMove(n){calDate.setMonth(calDate.getMonth()+n);renderCalendar()}
 
 const DEMO_COVERS=['cover1.png','cover2.png','cover3.png','cover4.png','cover5.png','cover6.png'];
 
+let memoryDates=[],memoryDateIndex=-1;
+
 function demoCoverForDate(y,m,d){
   // Same calendar date always gets the same demo jacket.
   const seed=(y*10000)+(m+1)*100+d;
@@ -725,13 +776,66 @@ function renderCalendar(){
 
     if(hit){
       const cover=demoCoverForDate(y,m,d);
-      h+=`<div class="calendarCell hasPost" style="background-image:url('${cover}')"><span class="calendarDay">${d}</span></div>`;
+      h+=`<div class="calendarCell hasPost" onclick="openCalendarDay(${y},${m},${d})" style="background-image:url('${cover}')"><span class="calendarDay">${d}</span></div>`;
     }else{
       h+=`<div class="calendarCell"><span class="calendarDay">${d}</span></div>`;
     }
   }
 
   $('calendarGrid').innerHTML=h;
+}
+
+function buildMemoryDates(){
+  const mine=allPosts.filter(p=>p.user_id===me.id);
+  const map=new Map();
+  mine.forEach(p=>{
+    const d=new Date(p.created_at);
+    const key=`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    if(!map.has(key))map.set(key,{y:d.getFullYear(),m:d.getMonth(),d:d.getDate()});
+  });
+  memoryDates=[...map.values()].sort((a,b)=>new Date(a.y,a.m,a.d)-new Date(b.y,b.m,b.d));
+}
+
+function openCalendarDay(y,m,d){
+  buildMemoryDates();
+  memoryDateIndex=memoryDates.findIndex(x=>x.y===y&&x.m===m&&x.d===d);
+  if(memoryDateIndex<0)return;
+  renderMemoryDay();
+  show('memoryPage');
+  scrollTo(0,0);
+}
+
+function moveMemory(n){
+  const next=memoryDateIndex+n;
+  if(next<0||next>=memoryDates.length)return;
+  memoryDateIndex=next;
+  renderMemoryDay();
+  scrollTo(0,0);
+}
+
+function renderMemoryDay(){
+  if(memoryDateIndex<0||memoryDateIndex>=memoryDates.length)return;
+  const target=memoryDates[memoryDateIndex];
+  const cover=demoCoverForDate(target.y,target.m,target.d);
+  $('memoryHero').style.backgroundImage=`url('${cover}')`;
+  $('memoryDate').textContent=`${target.y}年${target.m+1}月${target.d}日`;
+
+  const posts=allPosts.filter(p=>{
+    if(p.user_id!==me.id)return false;
+    const x=new Date(p.created_at);
+    return x.getFullYear()===target.y&&x.getMonth()===target.m&&x.getDate()===target.d;
+  }).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+
+  $('memoryPosts').innerHTML=posts.map(p=>`
+    <div class="card">
+      <div class="song">${esc(p.song_title||'今日の1曲')}</div>
+      <div class="artist">${esc(p.artist_name||'')}</div>
+      <div class="postDate">${esc(formatPostDate(p.created_at))}</div>
+      ${p.mood_text?`<p>${hashtagText(p.mood_text)}</p>`:''}
+    </div>`).join('');
+
+  $('memoryPrev').disabled=memoryDateIndex<=0;
+  $('memoryNext').disabled=memoryDateIndex>=memoryDates.length-1;
 }
 
 function renderGrowth(){let n=allPosts.filter(p=>p.user_id===me?.id).length,lv=n<2?1:n<5?2:n<10?3:n<20?4:5,ic=['','🌱','🌿','🌳','🌲','🪐'];$('creature').textContent=ic[lv];$('level').textContent='Lv.'+lv;$('growthBar').style.width=Math.min(100,15+n*8)+'%';$('growthText').textContent=`累計 ${n} 投稿`}

@@ -256,7 +256,14 @@ background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);-webkit-background-clip:t
 </div>
 <div id="followRequestEntry" class="card row" style="cursor:pointer" onclick="openFollowRequests()"><div class="grow"><b>フォローリクエスト</b><div class="muted" style="margin-top:4px">届いた申請を確認</div></div><span id="followRequestBadge" class="requestBadge hidden">0</span><span class="muted" style="font-size:20px">›</span></div>
 <div class="card privacyRow"><div><b>🔒 非公開アカウント</b><div id="privacyText" class="muted" style="margin-top:5px">公開中</div></div><label class="switch"><input id="privacyToggle" type="checkbox" onchange="togglePrivacy(this)"><span class="slider"></span></label></div>
-<button class="btn" onclick="logout()">ログアウト</button><div id="mine"></div></section>
+<button class="btn" onclick="logout()">ログアウト</button>
+<div id="pinnedWrap" class="card" style="display:none">
+  <div class="row" style="margin-bottom:10px">
+    <b>📌 Pinned Melodies</b>
+  </div>
+  <div id="pinnedMine"></div>
+</div>
+<div id="mine"></div></section>
 
 <section id="editProfilePage" class="page">
   <div class="row" style="margin-top:8px">
@@ -363,6 +370,7 @@ function formatPostDate(ts){
 }
 
 async function feed(){
+  await loadPinnedPosts();
   let r=await sb.from('posts').select('id,user_id,song_title,artist_name,mood_text,created_at').order('created_at',{ascending:false});
   if(r.error){
     $('feed').innerHTML='<div class="card error">'+esc(r.error.message)+'</div>';
@@ -392,7 +400,7 @@ async function feed(){
   const todayPosts=allPosts.filter(isToday);
   const recentPosts=allPosts.filter(p=>!isToday(p));
 
-  const renderPost=p=>`<div class="card"><div class="row"><div class="cover">🎵</div><div class="grow"><div class="song">${esc(p.song_title||'今日の1曲')}</div><div class="artist">${esc(p.artist_name||'')}</div><div class="time">@${esc(pm[p.user_id]?.username||'user')}</div><div class="postDate">${esc(formatPostDate(p.created_at))}</div></div></div><p>${hashtagText(p.mood_text||'')}</p><button class="btn ${liked.has(String(p.id))?'likeOn':''}" onclick="like('${p.id}',this)">${liked.has(String(p.id))?'♥ いいね':'♡ いいね'}</button> ${p.user_id!==me.id?`<button class="btn" onclick="openChatWith('${p.user_id}')">💬 Chat</button>`:`<button class="btn" onclick="deletePost('${p.id}')">🗑 削除</button>`}</div>`;
+  const renderPost=p=>`<div class="card"><div class="row"><div class="cover">🎵</div><div class="grow"><div class="song">${esc(p.song_title||'今日の1曲')}</div><div class="artist">${esc(p.artist_name||'')}</div><div class="time">@${esc(pm[p.user_id]?.username||'user')}</div><div class="postDate">${esc(formatPostDate(p.created_at))}</div></div></div><p>${hashtagText(p.mood_text||'')}</p><button class="btn ${liked.has(String(p.id))?'likeOn':''}" onclick="like('${p.id}',this)">${liked.has(String(p.id))?'♥ いいね':'♡ いいね'}</button> ${p.user_id!==me.id?`<button class="btn" onclick="openChatWith('${p.user_id}')">💬 Chat</button>`:`<button class="btn" onclick="togglePin('${p.id}',this)">${pinnedPostIds.has(String(p.id))?'📌 固定済み':'📌 固定'}</button> <button class="btn" onclick="deletePost('${p.id}')">🗑 削除</button>`}</div>`;
 
   $('feed').innerHTML=todayPosts.map(renderPost).join('')
     || '<div class="card muted">今日の投稿はまだありません</div>';
@@ -623,6 +631,62 @@ async function openHashtag(encodedTag){
 function backFromHashtag(){go('home')}
 
 
+
+let pinnedPostIds=new Set();
+
+async function loadPinnedPosts(){
+  if(!me)return;
+  const r=await sb.from('pinned_posts')
+    .select('post_id,created_at')
+    .eq('user_id',me.id)
+    .order('created_at',{ascending:false});
+
+  if(r.error){
+    console.error(r.error);
+    return;
+  }
+
+  pinnedPostIds=new Set((r.data||[]).map(x=>String(x.post_id)));
+}
+
+async function togglePin(postId,btn,from='feed'){
+  if(!me)return;
+
+  const id=String(postId);
+  const isPinned=pinnedPostIds.has(id);
+
+  if(isPinned){
+    const r=await sb.from('pinned_posts')
+      .delete()
+      .eq('user_id',me.id)
+      .eq('post_id',postId);
+
+    if(r.error)return pop('固定を外せませんでした：'+r.error.message);
+
+    pinnedPostIds.delete(id);
+    if(btn)btn.textContent='📌 固定';
+    pop('プロフィール固定を外しました');
+  }else{
+    if(pinnedPostIds.size>=3){
+      return pop('固定できるのは3件までです');
+    }
+
+    const r=await sb.from('pinned_posts').insert({
+      user_id:me.id,
+      post_id:postId
+    });
+
+    if(r.error)return pop('固定できませんでした：'+r.error.message);
+
+    pinnedPostIds.add(id);
+    if(btn)btn.textContent='📌 固定済み';
+    pop('プロフィールに固定しました');
+  }
+
+  if(from==='profile')await myprofile();
+  if(from==='memory')renderMemoryDay();
+}
+
 let deletingPost=false;
 async function deletePost(postId,from='feed'){
   if(deletingPost)return;
@@ -671,6 +735,7 @@ async function deletePost(postId,from='feed'){
 }
 
 async function myprofile(){
+  await loadPinnedPosts();
   let pr=await sb.from('profiles').select('id,username,display_name,bio,is_private').eq('id',me.id).single();
   if(!pr.error){
     prof=pr.data;
@@ -696,7 +761,18 @@ async function myprofile(){
   $('pc').textContent=a.count||0;
   $('fc').textContent=b.count||0;
   $('fg').textContent=c.count||0;
-  $('mine').innerHTML=(d.data||[]).map(p=>`<div class="card"><b>${esc(p.song_title||'')}</b><div class="artist">${esc(p.artist_name||'')}</div><div class="postDate">${esc(formatPostDate(p.created_at))}</div><p>${hashtagText(p.mood_text||'')}</p><button class="btn" onclick="deletePost('${p.id}','profile')">🗑 削除</button></div>`).join('')||'<div class="card">まだ投稿なし</div>';
+  $('mine').innerHTML=(d.data||[]).map(p=>`<div class="card"><b>${esc(p.song_title||'')}</b><div class="artist">${esc(p.artist_name||'')}</div><div class="postDate">${esc(formatPostDate(p.created_at))}</div><p>${hashtagText(p.mood_text||'')}</p><button class="btn" onclick="togglePin('${p.id}',this,'profile')">${pinnedPostIds.has(String(p.id))?'📌 固定済み':'📌 固定'}</button> <button class="btn" onclick="deletePost('${p.id}','profile')">🗑 削除</button></div>`).join('')||'<div class="card">まだ投稿なし</div>';
+  const pinnedPosts=(d.data||[]).filter(p=>pinnedPostIds.has(String(p.id)));
+  $('pinnedWrap').style.display=pinnedPosts.length?'block':'none';
+  $('pinnedMine').innerHTML=pinnedPosts.map(p=>`
+    <div class="card" style="margin:8px 0">
+      <div class="song">${esc(p.song_title||'今日の1曲')}</div>
+      <div class="artist">${esc(p.artist_name||'')}</div>
+      <div class="postDate">${esc(formatPostDate(p.created_at))}</div>
+      ${p.mood_text?`<p>${hashtagText(p.mood_text)}</p>`:''}
+      <button class="btn" onclick="togglePin('${p.id}',this,'profile')">📌 固定を外す</button>
+    </div>`).join('');
+
 }
 
 function openEditProfile(){
@@ -919,6 +995,7 @@ function renderMemoryDay(){
       <div class="artist">${esc(p.artist_name||'')}</div>
       <div class="postDate">${esc(formatPostDate(p.created_at))}</div>
       ${p.mood_text?`<p>${hashtagText(p.mood_text)}</p>`:''}
+      <button class="btn" onclick="togglePin('${p.id}',this,'memory')">${pinnedPostIds.has(String(p.id))?'📌 固定済み':'📌 固定'}</button>
       <button class="btn" onclick="deletePost('${p.id}','memory')">🗑 削除</button>
     </div>`).join('');
 

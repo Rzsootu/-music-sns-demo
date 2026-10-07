@@ -111,6 +111,17 @@ background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);-webkit-background-clip:t
 .memoryNav .btn{flex:1}
 .postDate{font-size:11px;color:#858691;margin-top:5px}
 
+.profileTabs{display:flex;gap:8px;margin:14px 0 10px}
+.profileTab{flex:1}
+.profileTab.active{background:#111;color:white}
+.collectionGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.collectionCard{cursor:pointer;min-height:110px;display:flex;flex-direction:column;justify-content:space-between}
+.collectionCard:active{transform:scale(.98)}
+.collectionCount{font-size:12px;color:#858691;margin-top:6px}
+.collectionPickerList{max-height:44vh;overflow:auto;margin:12px 0}
+.collectionPickerItem{width:100%;text-align:left;margin-bottom:8px}
+
+
 
 #growth .card{padding:28px 16px}
 #growthBar{background:linear-gradient(90deg,#efc7c8,#9d8cff)!important}
@@ -257,13 +268,35 @@ background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);-webkit-background-clip:t
 <div id="followRequestEntry" class="card row" style="cursor:pointer" onclick="openFollowRequests()"><div class="grow"><b>フォローリクエスト</b><div class="muted" style="margin-top:4px">届いた申請を確認</div></div><span id="followRequestBadge" class="requestBadge hidden">0</span><span class="muted" style="font-size:20px">›</span></div>
 <div class="card privacyRow"><div><b>🔒 非公開アカウント</b><div id="privacyText" class="muted" style="margin-top:5px">公開中</div></div><label class="switch"><input id="privacyToggle" type="checkbox" onchange="togglePrivacy(this)"><span class="slider"></span></label></div>
 <button class="btn" onclick="logout()">ログアウト</button>
-<div id="pinnedWrap" class="card" style="display:none">
-  <div class="row" style="margin-bottom:10px">
-    <b>📌 Pinned Melodies</b>
-  </div>
-  <div id="pinnedMine"></div>
+<div class="profileTabs">
+  <button id="postsTabBtn" class="btn profileTab active" onclick="switchProfileTab('posts')">Posts</button>
+  <button id="collectionsTabBtn" class="btn profileTab" onclick="switchProfileTab('collections')">Collections</button>
 </div>
-<div id="mine"></div></section>
+
+<div id="profilePostsPane">
+  <div id="pinnedWrap" class="card" style="display:none">
+    <div class="row" style="margin-bottom:10px">
+      <b>📌 Pinned Melodies</b>
+    </div>
+    <div id="pinnedMine"></div>
+  </div>
+  <div id="mine"></div>
+</div>
+
+<div id="profileCollectionsPane" style="display:none">
+  <button class="btn black" style="width:100%;margin-bottom:12px" onclick="createCollection()">＋ 新しいCollection</button>
+  <div id="collectionsGrid" class="collectionGrid"></div>
+</div>
+</section>
+
+<section id="collectionDetailPage" class="page">
+  <div class="row" style="margin-top:8px">
+    <button class="btn" onclick="show('profilePage');myprofile();switchProfileTab('collections');scrollTo(0,0)">‹</button>
+    <h3 id="collectionTitle" style="margin:0" class="grow">Collection</h3>
+    <button class="btn" onclick="deleteCurrentCollection()">削除</button>
+  </div>
+  <div id="collectionDetailPosts"></div>
+</section>
 
 <section id="editProfilePage" class="page">
   <div class="row" style="margin-top:8px">
@@ -312,7 +345,15 @@ background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);-webkit-background-clip:t
 </section>
 </div>
 <nav id="nav" class="bottom hidden"><button class="nav" onclick="go('home')">⌂<br>Feed</button><button class="nav" onclick="go('people')">⌕<br>People</button><button class="nav" onclick="go('messages')">💬<br>Chat</button><button class="nav" onclick="go('calendar')">▦<br>Calendar</button><button class="nav" onclick="go('profilePage')">●<br>Profile</button></nav>
-<div id="postModal" class="modal"><div class="sheet"><h2>今日を、1曲で。</h2><input id="song" class="field" placeholder="曲名"><input id="artist" class="field" placeholder="アーティスト"><input id="mood" class="field" placeholder="ひとこと"><button class="btn black" onclick="postMood()">投稿</button> <button class="btn" onclick="closePost()">閉じる</button></div></div><div id="toast" class="toast"></div>
+<div id="postModal" class="modal"><div class="sheet"><h2>今日を、1曲で。</h2><input id="song" class="field" placeholder="曲名"><input id="artist" class="field" placeholder="アーティスト"><input id="mood" class="field" placeholder="ひとこと"><button class="btn black" onclick="postMood()">投稿</button> <button class="btn" onclick="closePost()">閉じる</button></div></div><div id="collectionPickerModal" class="modal">
+  <div class="sheet">
+    <h2>Collectionに追加</h2>
+    <button class="btn black" style="width:100%" onclick="createCollectionFromPicker()">＋ 新しいCollection</button>
+    <div id="collectionPickerList" class="collectionPickerList"></div>
+    <button class="btn" style="width:100%" onclick="closeCollectionPicker()">閉じる</button>
+  </div>
+</div>
+<div id="toast" class="toast"></div>
 <div id="chatPage" class="chatPage">
   <div class="chatHead"><button class="btn" onclick="closeChat()">‹</button><div class="avatar" id="chatAv">?</div><div><b id="chatName">@user</b><div class="muted">Direct message</div></div></div>
   <div id="chatMessages" class="chatMessages"></div>
@@ -355,7 +396,7 @@ async function boot(){hideSplash();try{sb=supabase.createClient(SUPABASE_URL,SUP
 async function signup(){try{let n=$('uname').value.trim();if(n.length<3)throw new Error('ユーザー名は3文字以上にしてね');let r=await sb.auth.signUp({email:$('email').value.trim(),password:$('pass').value,options:{emailRedirectTo:APP_URL,data:{username:n,display_name:n}}});if(r.error)throw r.error;if(!r.data.session){$('msg').textContent='確認メールを開いてからMeloryに戻ってログインしてね';return}me=r.data.user;await ensureProfile();start()}catch(e){$('msg').textContent=e.message}}
 async function login(){try{$('msg').textContent='ログイン中…';let r=await sb.auth.signInWithPassword({email:$('email').value.trim(),password:$('pass').value});if(r.error)throw r.error;me=r.data.user;await ensureProfile();$('msg').textContent='';start()}catch(e){$('msg').textContent=e.message}}
 function start(){$('nav').classList.remove('hidden');$('av').textContent=avatarText(prof);go('home')}
-function go(id){show(id);if(id==='home')feed();if(id==='people')users();if(id==='messages')loadChats();if(id==='profilePage')myprofile();if(id==='calendar')renderCalendar();if(id==='growth')renderGrowth();scrollTo(0,0)}
+function go(id){show(id);if(id==='home')feed();if(id==='people')users();if(id==='messages')loadChats();if(id==='profilePage'){myprofile();switchProfileTab('posts')}if(id==='calendar')renderCalendar();if(id==='growth')renderGrowth();scrollTo(0,0)}
 
 function formatPostDate(ts){
   const d=new Date(ts),now=new Date();
@@ -400,7 +441,7 @@ async function feed(){
   const todayPosts=allPosts.filter(isToday);
   const recentPosts=allPosts.filter(p=>!isToday(p));
 
-  const renderPost=p=>`<div class="card"><div class="row"><div class="cover">🎵</div><div class="grow"><div class="song">${esc(p.song_title||'今日の1曲')}</div><div class="artist">${esc(p.artist_name||'')}</div><div class="time">@${esc(pm[p.user_id]?.username||'user')}</div><div class="postDate">${esc(formatPostDate(p.created_at))}</div></div></div><p>${hashtagText(p.mood_text||'')}</p><button class="btn ${liked.has(String(p.id))?'likeOn':''}" onclick="like('${p.id}',this)">${liked.has(String(p.id))?'♥ いいね':'♡ いいね'}</button> ${p.user_id!==me.id?`<button class="btn" onclick="openChatWith('${p.user_id}')">💬 Chat</button>`:`<button class="btn" onclick="togglePin('${p.id}',this)">${pinnedPostIds.has(String(p.id))?'📌 固定済み':'📌 固定'}</button> <button class="btn" onclick="deletePost('${p.id}')">🗑 削除</button>`}</div>`;
+  const renderPost=p=>`<div class="card"><div class="row"><div class="cover">🎵</div><div class="grow"><div class="song">${esc(p.song_title||'今日の1曲')}</div><div class="artist">${esc(p.artist_name||'')}</div><div class="time">@${esc(pm[p.user_id]?.username||'user')}</div><div class="postDate">${esc(formatPostDate(p.created_at))}</div></div></div><p>${hashtagText(p.mood_text||'')}</p><button class="btn ${liked.has(String(p.id))?'likeOn':''}" onclick="like('${p.id}',this)">${liked.has(String(p.id))?'♥ いいね':'♡ いいね'}</button> ${p.user_id!==me.id?`<button class="btn" onclick="openChatWith('${p.user_id}')">💬 Chat</button>`:`<button class="btn" onclick="togglePin('${p.id}',this)">${pinnedPostIds.has(String(p.id))?'📌 固定済み':'📌 固定'}</button> <button class="btn" onclick="openCollectionPicker('${p.id}')">＋ Collection</button> <button class="btn" onclick="deletePost('${p.id}')">🗑 削除</button>`}</div>`;
 
   $('feed').innerHTML=todayPosts.map(renderPost).join('')
     || '<div class="card muted">今日の投稿はまだありません</div>';
@@ -632,6 +673,228 @@ function backFromHashtag(){go('home')}
 
 
 
+
+let collectionsCache=[];
+let collectionPickerPostId=null;
+let currentCollectionId=null;
+
+function switchProfileTab(tab){
+  const posts=tab==='posts';
+  $('profilePostsPane').style.display=posts?'block':'none';
+  $('profileCollectionsPane').style.display=posts?'none':'block';
+  $('postsTabBtn').classList.toggle('active',posts);
+  $('collectionsTabBtn').classList.toggle('active',!posts);
+  if(!posts)loadCollections();
+}
+
+async function loadCollections(){
+  if(!me)return;
+  const r=await sb.from('collections')
+    .select('id,name,created_at')
+    .eq('user_id',me.id)
+    .order('created_at',{ascending:false});
+
+  if(r.error){
+    console.error(r.error);
+    $('collectionsGrid').innerHTML='<div class="card">Collectionsを読み込めませんでした</div>';
+    return;
+  }
+
+  collectionsCache=r.data||[];
+
+  let counts={};
+  if(collectionsCache.length){
+    const ids=collectionsCache.map(c=>c.id);
+    const cp=await sb.from('collection_posts')
+      .select('collection_id,post_id')
+      .in('collection_id',ids);
+    if(!cp.error){
+      (cp.data||[]).forEach(x=>{
+        counts[x.collection_id]=(counts[x.collection_id]||0)+1;
+      });
+    }
+  }
+
+  $('collectionsGrid').innerHTML=collectionsCache.length
+    ? collectionsCache.map(c=>`
+      <div class="card collectionCard" onclick="openCollection('${c.id}')">
+        <div>
+          <div style="font-size:28px">🎵</div>
+          <b>${esc(c.name)}</b>
+        </div>
+        <div class="collectionCount">${counts[c.id]||0} melodies</div>
+      </div>`).join('')
+    : '<div class="card" style="grid-column:1/-1">まだCollectionがありません</div>';
+}
+
+async function createCollection(){
+  const name=prompt('Collection名を入力して');
+  if(name===null)return;
+  const clean=name.trim();
+  if(!clean)return pop('Collection名を入力して');
+
+  const r=await sb.from('collections').insert({
+    user_id:me.id,
+    name:clean
+  }).select('id,name,created_at').single();
+
+  if(r.error)return pop('作成できませんでした：'+r.error.message);
+
+  pop('Collectionを作成しました');
+  await loadCollections();
+}
+
+async function openCollectionPicker(postId){
+  collectionPickerPostId=postId;
+  await loadCollectionsForPicker();
+  $('collectionPickerModal').classList.add('show');
+}
+
+function closeCollectionPicker(){
+  $('collectionPickerModal').classList.remove('show');
+  collectionPickerPostId=null;
+}
+
+async function loadCollectionsForPicker(){
+  const r=await sb.from('collections')
+    .select('id,name')
+    .eq('user_id',me.id)
+    .order('created_at',{ascending:false});
+
+  if(r.error){
+    $('collectionPickerList').innerHTML='<div class="card">読み込めませんでした</div>';
+    return;
+  }
+
+  collectionsCache=r.data||[];
+  $('collectionPickerList').innerHTML=collectionsCache.length
+    ? collectionsCache.map(c=>`
+      <button class="btn collectionPickerItem" onclick="addPostToCollection('${c.id}')">
+        🎵 ${esc(c.name)}
+      </button>`).join('')
+    : '<div class="card muted">まだCollectionがありません</div>';
+}
+
+async function createCollectionFromPicker(){
+  const name=prompt('新しいCollection名');
+  if(name===null)return;
+  const clean=name.trim();
+  if(!clean)return pop('Collection名を入力して');
+
+  const r=await sb.from('collections').insert({
+    user_id:me.id,
+    name:clean
+  }).select('id').single();
+
+  if(r.error)return pop('作成できませんでした：'+r.error.message);
+
+  if(collectionPickerPostId){
+    await addPostToCollection(r.data.id);
+  }else{
+    await loadCollectionsForPicker();
+  }
+}
+
+async function addPostToCollection(collectionId){
+  if(!collectionPickerPostId)return;
+
+  const r=await sb.from('collection_posts').insert({
+    collection_id:collectionId,
+    post_id:collectionPickerPostId
+  });
+
+  if(r.error){
+    if(String(r.error.code)==='23505')return pop('このCollectionには追加済みです');
+    return pop('追加できませんでした：'+r.error.message);
+  }
+
+  closeCollectionPicker();
+  pop('Collectionに追加しました');
+}
+
+async function openCollection(collectionId){
+  currentCollectionId=collectionId;
+
+  const c=await sb.from('collections')
+    .select('id,name')
+    .eq('id',collectionId)
+    .eq('user_id',me.id)
+    .single();
+
+  if(c.error)return pop('Collectionを開けませんでした');
+  $('collectionTitle').textContent=c.data.name;
+
+  const cp=await sb.from('collection_posts')
+    .select('post_id,created_at')
+    .eq('collection_id',collectionId)
+    .order('created_at',{ascending:false});
+
+  if(cp.error)return pop('Collectionを読み込めませんでした');
+
+  const ids=(cp.data||[]).map(x=>x.post_id);
+  if(!ids.length){
+    $('collectionDetailPosts').innerHTML='<div class="card">まだ曲が入っていません</div>';
+    show('collectionDetailPage');
+    scrollTo(0,0);
+    return;
+  }
+
+  const p=await sb.from('posts')
+    .select('*')
+    .in('id',ids);
+
+  if(p.error)return pop('投稿を読み込めませんでした');
+
+  const order=new Map(ids.map((id,i)=>[String(id),i]));
+  const posts=(p.data||[]).sort((a,b)=>order.get(String(a.id))-order.get(String(b.id)));
+
+  $('collectionDetailPosts').innerHTML=posts.map(x=>`
+    <div class="card">
+      <div class="song">${esc(x.song_title||'今日の1曲')}</div>
+      <div class="artist">${esc(x.artist_name||'')}</div>
+      <div class="postDate">${esc(formatPostDate(x.created_at))}</div>
+      ${x.mood_text?`<p>${hashtagText(x.mood_text)}</p>`:''}
+      <button class="btn" onclick="removeFromCollection('${x.id}')">Collectionから外す</button>
+    </div>`).join('');
+
+  show('collectionDetailPage');
+  scrollTo(0,0);
+}
+
+async function removeFromCollection(postId){
+  if(!currentCollectionId)return;
+  const ok=confirm('このCollectionから外しますか？');
+  if(!ok)return;
+
+  const r=await sb.from('collection_posts')
+    .delete()
+    .eq('collection_id',currentCollectionId)
+    .eq('post_id',postId);
+
+  if(r.error)return pop('外せませんでした：'+r.error.message);
+
+  pop('Collectionから外しました');
+  await openCollection(currentCollectionId);
+}
+
+async function deleteCurrentCollection(){
+  if(!currentCollectionId)return;
+  const ok=confirm('このCollectionを削除しますか？\n中の投稿そのものは削除されません。');
+  if(!ok)return;
+
+  const r=await sb.from('collections')
+    .delete()
+    .eq('id',currentCollectionId)
+    .eq('user_id',me.id);
+
+  if(r.error)return pop('削除できませんでした：'+r.error.message);
+
+  currentCollectionId=null;
+  pop('Collectionを削除しました');
+  go('profilePage');
+  switchProfileTab('collections');
+}
+
 let pinnedPostIds=new Set();
 
 async function loadPinnedPosts(){
@@ -761,7 +1024,7 @@ async function myprofile(){
   $('pc').textContent=a.count||0;
   $('fc').textContent=b.count||0;
   $('fg').textContent=c.count||0;
-  $('mine').innerHTML=(d.data||[]).map(p=>`<div class="card"><b>${esc(p.song_title||'')}</b><div class="artist">${esc(p.artist_name||'')}</div><div class="postDate">${esc(formatPostDate(p.created_at))}</div><p>${hashtagText(p.mood_text||'')}</p><button class="btn" onclick="togglePin('${p.id}',this,'profile')">${pinnedPostIds.has(String(p.id))?'📌 固定済み':'📌 固定'}</button> <button class="btn" onclick="deletePost('${p.id}','profile')">🗑 削除</button></div>`).join('')||'<div class="card">まだ投稿なし</div>';
+  $('mine').innerHTML=(d.data||[]).map(p=>`<div class="card"><b>${esc(p.song_title||'')}</b><div class="artist">${esc(p.artist_name||'')}</div><div class="postDate">${esc(formatPostDate(p.created_at))}</div><p>${hashtagText(p.mood_text||'')}</p><button class="btn" onclick="togglePin('${p.id}',this,'profile')">${pinnedPostIds.has(String(p.id))?'📌 固定済み':'📌 固定'}</button> <button class="btn" onclick="openCollectionPicker('${p.id}')">＋ Collection</button> <button class="btn" onclick="deletePost('${p.id}','profile')">🗑 削除</button></div>`).join('')||'<div class="card">まだ投稿なし</div>';
   const pinnedPosts=(d.data||[]).filter(p=>pinnedPostIds.has(String(p.id)));
   $('pinnedWrap').style.display=pinnedPosts.length?'block':'none';
   $('pinnedMine').innerHTML=pinnedPosts.map(p=>`
@@ -996,6 +1259,7 @@ function renderMemoryDay(){
       <div class="postDate">${esc(formatPostDate(p.created_at))}</div>
       ${p.mood_text?`<p>${hashtagText(p.mood_text)}</p>`:''}
       <button class="btn" onclick="togglePin('${p.id}',this,'memory')">${pinnedPostIds.has(String(p.id))?'📌 固定済み':'📌 固定'}</button>
+      <button class="btn" onclick="openCollectionPicker('${p.id}')">＋ Collection</button>
       <button class="btn" onclick="deletePost('${p.id}','memory')">🗑 削除</button>
     </div>`).join('');
 

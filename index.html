@@ -392,7 +392,7 @@ async function feed(){
   const todayPosts=allPosts.filter(isToday);
   const recentPosts=allPosts.filter(p=>!isToday(p));
 
-  const renderPost=p=>`<div class="card"><div class="row"><div class="cover">🎵</div><div class="grow"><div class="song">${esc(p.song_title||'今日の1曲')}</div><div class="artist">${esc(p.artist_name||'')}</div><div class="time">@${esc(pm[p.user_id]?.username||'user')}</div><div class="postDate">${esc(formatPostDate(p.created_at))}</div></div></div><p>${hashtagText(p.mood_text||'')}</p><button class="btn ${liked.has(String(p.id))?'likeOn':''}" onclick="like('${p.id}',this)">${liked.has(String(p.id))?'♥ いいね':'♡ いいね'}</button> ${p.user_id!==me.id?`<button class="btn" onclick="openChatWith('${p.user_id}')">💬 Chat</button>`:''}</div>`;
+  const renderPost=p=>`<div class="card"><div class="row"><div class="cover">🎵</div><div class="grow"><div class="song">${esc(p.song_title||'今日の1曲')}</div><div class="artist">${esc(p.artist_name||'')}</div><div class="time">@${esc(pm[p.user_id]?.username||'user')}</div><div class="postDate">${esc(formatPostDate(p.created_at))}</div></div></div><p>${hashtagText(p.mood_text||'')}</p><button class="btn ${liked.has(String(p.id))?'likeOn':''}" onclick="like('${p.id}',this)">${liked.has(String(p.id))?'♥ いいね':'♡ いいね'}</button> ${p.user_id!==me.id?`<button class="btn" onclick="openChatWith('${p.user_id}')">💬 Chat</button>`:`<button class="btn" onclick="deletePost('${p.id}')">🗑 削除</button>`}</div>`;
 
   $('feed').innerHTML=todayPosts.map(renderPost).join('')
     || '<div class="card muted">今日の投稿はまだありません</div>';
@@ -405,7 +405,46 @@ async function feed(){
 }
 
 function openPost(){$('postModal').style.display='flex'}function closePost(){$('postModal').style.display='none'}
-async function postMood(){if(!$('song').value.trim())return pop('曲名を入力して');let r=await sb.from('posts').insert({user_id:me.id,song_title:$('song').value.trim(),artist_name:$('artist').value.trim(),mood_text:$('mood').value.trim()});if(r.error)return pop(r.error.message);$('song').value=$('artist').value=$('mood').value='';closePost();await feed();pop('投稿した！')}
+let isPosting=false;
+async function postMood(){
+  if(isPosting)return;
+  if(!$('song').value.trim())return pop('曲名を入力して');
+
+  isPosting=true;
+  const btn=document.querySelector('#postModal .black');
+  if(btn){
+    btn.disabled=true;
+    btn.textContent='投稿中…';
+  }
+
+  let r=await sb.from('posts').insert({
+    user_id:me.id,
+    song_title:$('song').value.trim(),
+    artist_name:$('artist').value.trim(),
+    mood_text:$('mood').value.trim()
+  });
+
+  if(r.error){
+    isPosting=false;
+    if(btn){
+      btn.disabled=false;
+      btn.textContent='投稿';
+    }
+    return pop(r.error.message);
+  }
+
+  $('song').value=$('artist').value=$('mood').value='';
+  closePost();
+  await feed();
+
+  isPosting=false;
+  if(btn){
+    btn.disabled=false;
+    btn.textContent='投稿';
+  }
+
+  pop('投稿した！');
+}
 async function like(id,b){let q=await sb.from('likes').select('*').eq('user_id',me.id).eq('post_id',id).maybeSingle();if(q.data){let r=await sb.from('likes').delete().eq('user_id',me.id).eq('post_id',id);if(r.error)return pop(r.error.message);b.textContent='♡ いいね';b.classList.remove('likeOn')}else{let r=await sb.from('likes').insert({user_id:me.id,post_id:id});if(r.error)return pop(r.error.message);b.textContent='♥ いいね';b.classList.add('likeOn')}}
 async function users(){
   if(!me)return;
@@ -583,6 +622,54 @@ async function openHashtag(encodedTag){
 }
 function backFromHashtag(){go('home')}
 
+
+let deletingPost=false;
+async function deletePost(postId,from='feed'){
+  if(deletingPost)return;
+  const ok=confirm('この投稿を削除しますか？\n削除すると元に戻せません。');
+  if(!ok)return;
+
+  deletingPost=true;
+  const r=await sb.from('posts')
+    .delete()
+    .eq('id',postId)
+    .eq('user_id',me.id);
+
+  deletingPost=false;
+
+  if(r.error){
+    return pop('削除できませんでした：'+r.error.message);
+  }
+
+  await feed();
+
+  if(from==='profile'){
+    await myprofile();
+  }else if(from==='memory'){
+    const oldTarget=memoryDates[memoryDateIndex];
+    buildMemoryDates();
+
+    if(!memoryDates.length){
+      go('calendar');
+    }else{
+      let nextIndex=memoryDates.findIndex(x=>
+        oldTarget &&
+        x.y===oldTarget.y &&
+        x.m===oldTarget.m &&
+        x.d===oldTarget.d
+      );
+      if(nextIndex<0) nextIndex=Math.min(memoryDateIndex,memoryDates.length-1);
+      memoryDateIndex=nextIndex;
+      renderMemoryDay();
+      renderCalendar();
+    }
+  }else{
+    renderCalendar();
+  }
+
+  pop('投稿を削除しました');
+}
+
 async function myprofile(){
   let pr=await sb.from('profiles').select('id,username,display_name,bio,is_private').eq('id',me.id).single();
   if(!pr.error){
@@ -609,7 +696,7 @@ async function myprofile(){
   $('pc').textContent=a.count||0;
   $('fc').textContent=b.count||0;
   $('fg').textContent=c.count||0;
-  $('mine').innerHTML=(d.data||[]).map(p=>`<div class="card"><b>${esc(p.song_title||'')}</b><div class="artist">${esc(p.artist_name||'')}</div><p>${hashtagText(p.mood_text||'')}</p></div>`).join('')||'<div class="card">まだ投稿なし</div>';
+  $('mine').innerHTML=(d.data||[]).map(p=>`<div class="card"><b>${esc(p.song_title||'')}</b><div class="artist">${esc(p.artist_name||'')}</div><div class="postDate">${esc(formatPostDate(p.created_at))}</div><p>${hashtagText(p.mood_text||'')}</p><button class="btn" onclick="deletePost('${p.id}','profile')">🗑 削除</button></div>`).join('')||'<div class="card">まだ投稿なし</div>';
 }
 
 function openEditProfile(){
@@ -832,6 +919,7 @@ function renderMemoryDay(){
       <div class="artist">${esc(p.artist_name||'')}</div>
       <div class="postDate">${esc(formatPostDate(p.created_at))}</div>
       ${p.mood_text?`<p>${hashtagText(p.mood_text)}</p>`:''}
+      <button class="btn" onclick="deletePost('${p.id}','memory')">🗑 削除</button>
     </div>`).join('');
 
   $('memoryPrev').disabled=memoryDateIndex<=0;

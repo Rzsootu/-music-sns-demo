@@ -284,7 +284,7 @@ background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);-webkit-background-clip:t
 </div>
 
 <div id="profileCollectionsPane" style="display:none">
-  <button class="btn black" style="width:100%;margin-bottom:12px" onclick="createCollection()">＋ 新しいCollection</button>
+  <button class="btn black" style="width:100%;margin-bottom:12px" onclick="createCollection()">＋ Collectionを作る</button>
   <div id="collectionsGrid" class="collectionGrid"></div>
 </div>
 </section>
@@ -295,6 +295,7 @@ background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);-webkit-background-clip:t
     <h3 id="collectionTitle" style="margin:0" class="grow">Collection</h3>
     <button class="btn" onclick="deleteCurrentCollection()">削除</button>
   </div>
+  <button class="btn black" style="width:100%;margin:12px 0" onclick="openAddExistingPosts()">＋ 過去の投稿を追加</button>
   <div id="collectionDetailPosts"></div>
 </section>
 
@@ -351,6 +352,13 @@ background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);-webkit-background-clip:t
     <button class="btn black" style="width:100%" onclick="createCollectionFromPicker()">＋ 新しいCollection</button>
     <div id="collectionPickerList" class="collectionPickerList"></div>
     <button class="btn" style="width:100%" onclick="closeCollectionPicker()">閉じる</button>
+  </div>
+</div>
+<div id="existingPostsModal" class="modal">
+  <div class="sheet">
+    <h2>過去の投稿を追加</h2>
+    <div id="existingPostsList" class="collectionPickerList"></div>
+    <button class="btn" style="width:100%" onclick="closeExistingPosts()">閉じる</button>
   </div>
 </div>
 <div id="toast" class="toast"></div>
@@ -740,8 +748,16 @@ async function createCollection(){
 
   if(r.error)return pop('作成できませんでした：'+r.error.message);
 
-  pop('Collectionを作成しました');
+  currentCollectionId=r.data.id;
   await loadCollections();
+
+  const addNow=confirm('Collectionを作成しました。\n今までの投稿から曲を追加しますか？');
+  if(addNow){
+    await openCollection(currentCollectionId);
+    await openAddExistingPosts();
+  }else{
+    pop('Collectionを作成しました');
+  }
 }
 
 async function openCollectionPicker(postId){
@@ -791,7 +807,10 @@ async function createCollectionFromPicker(){
   if(collectionPickerPostId){
     await addPostToCollection(r.data.id);
   }else{
+    currentCollectionId=r.data.id;
     await loadCollectionsForPicker();
+    await openCollection(currentCollectionId);
+    await openAddExistingPosts();
   }
 }
 
@@ -875,6 +894,61 @@ async function removeFromCollection(postId){
 
   pop('Collectionから外しました');
   await openCollection(currentCollectionId);
+}
+
+
+async function openAddExistingPosts(){
+  if(!currentCollectionId)return;
+
+  const cp=await sb.from('collection_posts')
+    .select('post_id')
+    .eq('collection_id',currentCollectionId);
+
+  if(cp.error)return pop('Collection情報を読み込めませんでした');
+
+  const already=new Set((cp.data||[]).map(x=>String(x.post_id)));
+
+  const p=await sb.from('posts')
+    .select('*')
+    .eq('user_id',me.id)
+    .order('created_at',{ascending:false});
+
+  if(p.error)return pop('投稿を読み込めませんでした');
+
+  const available=(p.data||[]).filter(x=>!already.has(String(x.id)));
+
+  $('existingPostsList').innerHTML=available.length
+    ? available.map(x=>`
+      <button class="btn collectionPickerItem" onclick="addExistingPostToCurrentCollection('${x.id}')">
+        <div style="font-weight:800">${esc(x.song_title||'今日の1曲')}</div>
+        <div class="artist">${esc(x.artist_name||'')}</div>
+        <div class="postDate">${esc(formatPostDate(x.created_at))}</div>
+      </button>`).join('')
+    : '<div class="card muted">追加できる投稿がありません</div>';
+
+  $('existingPostsModal').classList.add('show');
+}
+
+function closeExistingPosts(){
+  $('existingPostsModal').classList.remove('show');
+}
+
+async function addExistingPostToCurrentCollection(postId){
+  if(!currentCollectionId)return;
+
+  const r=await sb.from('collection_posts').insert({
+    collection_id:currentCollectionId,
+    post_id:postId
+  });
+
+  if(r.error){
+    if(String(r.error.code)==='23505')return pop('この投稿は追加済みです');
+    return pop('追加できませんでした：'+r.error.message);
+  }
+
+  pop('Collectionに追加しました');
+  await openCollection(currentCollectionId);
+  await openAddExistingPosts();
 }
 
 async function deleteCurrentCollection(){

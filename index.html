@@ -152,6 +152,18 @@ background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);-webkit-background-clip:t
 }
 .appleLink{font-size:12px;text-decoration:none}
 
+.announcementBanner{
+  display:none;margin:12px 0;padding:13px 14px;border-radius:16px;
+  background:#171922;border:1px solid #2d303a;cursor:pointer
+}
+.announcementBanner.show{display:block}
+.announcementBanner .label{font-size:11px;color:#ffcf70;font-weight:800;margin-bottom:4px}
+.announcementBanner .title{font-weight:850}
+.announcementBanner .preview{font-size:12px;color:#9b9ca6;margin-top:4px}
+.announcementItem{margin-bottom:10px}
+.announcementDate{font-size:11px;color:#858691;margin-top:6px}
+
+
 
 
 
@@ -265,6 +277,12 @@ background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);-webkit-background-clip:t
 <header><div><div class="logo">Mew</div></div><div class="avatar" id="av">?</div></header>
 <section id="auth" class="page"><h1>Moodへようこそ</h1><input id="email" class="field" type="email" placeholder="メール"><input id="pass" class="field" type="password" placeholder="パスワード"><input id="uname" class="field" placeholder="ユーザー名（新規登録時）"><button class="btn black" onclick="signup()">新規登録</button> <button class="btn" onclick="login()">ログイン</button><p id="msg" class="muted"></p></section>
 <section id="home" class="page">
+<div id="announcementBanner" class="announcementBanner" onclick="openAnnouncements()">
+  <div class="label">📢 Mewからのお知らせ</div>
+  <div id="announcementBannerTitle" class="title"></div>
+  <div id="announcementBannerPreview" class="preview"></div>
+</div>
+
   <div class="hero"><small>TODAY'S MELODY</small><h1>今日という一日を、<br>1曲で残そう。</h1><button class="btn" onclick="openPost()">＋ 今日の1曲</button></div>
   <h3>Today's feed</h3>
   <div id="feed"></div>
@@ -288,6 +306,14 @@ background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);-webkit-background-clip:t
   <div id="memoryPosts"></div>
 </section>
 <section id="growth" class="page"><h3>My Growth</h3><div class="card" style="text-align:center"><div id="creature" style="font-size:78px">🌱</div><h2 id="level">Lv.1</h2><div style="height:10px;background:#eee;border-radius:10px;overflow:hidden"><div id="growthBar" style="height:100%;background:#111;width:10%"></div></div><p id="growthText" class="muted"></p></div></section>
+<section id="announcementsPage" class="page">
+  <div class="row" style="margin-top:8px">
+    <button class="btn" onclick="go('home')">‹</button>
+    <h3 style="margin:0">お知らせ</h3>
+  </div>
+  <div id="announcementsList"></div>
+</section>
+
 <section id="messages" class="page"><h3>Messages</h3><div id="chatList"><div class="card muted">チャットを読み込み中…</div></div></section>
 <section id="profilePage" class="page"><div class="card" style="text-align:center">
 <div class="avatar" id="pav" style="width:74px;height:74px;margin:auto">?</div>
@@ -633,7 +659,57 @@ function formatPostDate(ts){
   return `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 ${hh}:${mm}`;
 }
 
+
+let announcementsCache=[];
+
+function formatAnnouncementDate(ts){
+  const d=new Date(ts);
+  return `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日`;
+}
+
+async function loadAnnouncements(){
+  const r=await sb.from('announcements')
+    .select('id,title,body,created_at,is_active')
+    .eq('is_active',true)
+    .order('created_at',{ascending:false});
+
+  if(r.error){
+    console.error(r.error);
+    return;
+  }
+
+  announcementsCache=r.data||[];
+
+  if(announcementsCache.length){
+    const latest=announcementsCache[0];
+    $('announcementBannerTitle').textContent=latest.title;
+    $('announcementBannerPreview').textContent=
+      latest.body.length>54 ? latest.body.slice(0,54)+'…' : latest.body;
+    $('announcementBanner').classList.add('show');
+  }else{
+    $('announcementBanner').classList.remove('show');
+  }
+}
+
+function openAnnouncements(){
+  renderAnnouncements();
+  show('announcementsPage');
+  scrollTo(0,0);
+}
+
+function renderAnnouncements(){
+  $('announcementsList').innerHTML=announcementsCache.length
+    ? announcementsCache.map(a=>`
+      <div class="card announcementItem">
+        <div class="song">${esc(a.title)}</div>
+        <div class="announcementDate">${esc(formatAnnouncementDate(a.created_at))}</div>
+        <p style="white-space:pre-wrap">${esc(a.body)}</p>
+      </div>`).join('')
+    : '<div class="card">お知らせはありません</div>';
+}
+
 async function feed(){
+  await loadAnnouncements();
   await loadPinnedPosts();
   let r=await sb.from('posts').select('id,user_id,song_title,artist_name,mood_text,created_at,preview_url,artwork_url,apple_track_id,track_url').order('created_at',{ascending:false});
   if(r.error){

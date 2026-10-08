@@ -506,42 +506,73 @@ function playPreview(url,btn){
   });
 }
 
+let itunesSearchResolver=null;
+let itunesSearchRejecter=null;
+let itunesSearchScript=null;
+let itunesSearchTimer=null;
+
+window.mewItunesCallback=function(data){
+  if(itunesSearchTimer)clearTimeout(itunesSearchTimer);
+  if(itunesSearchScript)itunesSearchScript.remove();
+
+  const resolve=itunesSearchResolver;
+
+  itunesSearchResolver=null;
+  itunesSearchRejecter=null;
+  itunesSearchScript=null;
+  itunesSearchTimer=null;
+
+  if(resolve)resolve(data);
+};
+
 function itunesSearch(query){
   return new Promise((resolve,reject)=>{
-    const callback='mewItunes_'+Date.now()+'_'+Math.random().toString(36).slice(2);
-    const script=document.createElement('script');
-    const timer=setTimeout(()=>{
-      cleanup();
-      reject(new Error('検索がタイムアウトしました'));
-    },10000);
-
-    function cleanup(){
-      clearTimeout(timer);
-      try{delete window[callback]}catch(e){}
-      script.remove();
+    // 前の検索が残っていたら掃除
+    if(itunesSearchTimer)clearTimeout(itunesSearchTimer);
+    if(itunesSearchScript)itunesSearchScript.remove();
+    if(itunesSearchRejecter){
+      try{itunesSearchRejecter(new Error('新しい検索を開始しました'))}catch(e){}
     }
 
-    window[callback]=(data)=>{
-      cleanup();
-      resolve(data);
-    };
+    itunesSearchResolver=resolve;
+    itunesSearchRejecter=reject;
+
+    const term=encodeURIComponent(query.trim()).replace(/%20/g,'+');
+    const url=
+      'https://itunes.apple.com/search'
+      +'?term='+term
+      +'&country=JP'
+      +'&media=music'
+      +'&entity=song'
+      +'&limit=20'
+      +'&lang=ja_jp'
+      +'&callback=mewItunesCallback'
+      +'&_='+Date.now();
+
+    const script=document.createElement('script');
+    script.src=url;
+    script.async=true;
+    script.charset='utf-8';
 
     script.onerror=()=>{
-      cleanup();
-      reject(new Error('検索に失敗しました'));
+      if(itunesSearchTimer)clearTimeout(itunesSearchTimer);
+      script.remove();
+      itunesSearchScript=null;
+      itunesSearchResolver=null;
+      itunesSearchRejecter=null;
+      reject(new Error('Appleの曲検索に接続できませんでした'));
     };
 
-    const params=new URLSearchParams({
-      term:query,
-      country:'JP',
-      media:'music',
-      entity:'song',
-      limit:'15',
-      callback
-    });
-
-    script.src='https://itunes.apple.com/search?'+params.toString();
+    itunesSearchScript=script;
     document.body.appendChild(script);
+
+    itunesSearchTimer=setTimeout(()=>{
+      if(itunesSearchScript)itunesSearchScript.remove();
+      itunesSearchScript=null;
+      itunesSearchResolver=null;
+      itunesSearchRejecter=null;
+      reject(new Error('検索結果を取得できませんでした。もう一度試して'));
+    },12000);
   });
 }
 
@@ -549,7 +580,7 @@ async function searchMusic(){
   const q=$('musicSearch').value.trim();
   if(!q)return pop('曲名かアーティストを入力して');
 
-  $('musicResults').innerHTML='<div class="card muted">検索中…</div>';
+  $('musicResults').innerHTML='<div class="card"><b>検索中…</b><div class="muted" style="margin-top:6px">Appleの曲情報を取得しています</div></div>';
 
   try{
     const data=await itunesSearch(q);
@@ -570,7 +601,7 @@ async function searchMusic(){
         </div>`).join('')
       : '<div class="card muted">曲が見つかりませんでした</div>';
   }catch(e){
-    $('musicResults').innerHTML='<div class="card error">'+esc(e.message)+'</div>';
+    $('musicResults').innerHTML='<div class="card"><b>検索できませんでした</b><div class="muted" style="margin-top:6px">'+esc(e.message)+'</div></div>';
   }
 }
 

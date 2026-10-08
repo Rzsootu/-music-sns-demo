@@ -1584,14 +1584,15 @@ function renderCalendar(){
   for(let i=0;i<first;i++)h+='<div></div>';
 
   for(let d=1;d<=last;d++){
-    const hit=mine.some(p=>{
+    const dayPosts=mine.filter(p=>{
       const x=new Date(p.created_at);
       return x.getFullYear()===y&&x.getMonth()===m&&x.getDate()===d;
-    });
+    }).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
 
-    if(hit){
-      const cover=demoCoverForDate(y,m,d);
-      h+=`<div class="calendarCell hasPost" onclick="openCalendarDay(${y},${m},${d})" style="background-image:url('${cover}')"><span class="calendarDay">${d}</span></div>`;
+    if(dayPosts.length){
+      const newest=dayPosts[0];
+      const cover=hiResArtwork(newest.artwork_url||'') || demoCoverForDate(y,m,d);
+      h+=`<div class="calendarCell hasPost" onclick="openCalendarDay(${y},${m},${d})" style="background-image:url('${esc(cover)}')"><span class="calendarDay">${d}</span></div>`;
     }else{
       h+=`<div class="calendarCell"><span class="calendarDay">${d}</span></div>`;
     }
@@ -1631,15 +1632,16 @@ function moveMemory(n){
 function renderMemoryDay(){
   if(memoryDateIndex<0||memoryDateIndex>=memoryDates.length)return;
   const target=memoryDates[memoryDateIndex];
-  const cover=demoCoverForDate(target.y,target.m,target.d);
-  $('memoryHero').style.backgroundImage=`url('${cover}')`;
-  $('memoryDate').textContent=`${target.y}年${target.m+1}月${target.d}日`;
-
   const posts=allPosts.filter(p=>{
     if(p.user_id!==me.id)return false;
     const x=new Date(p.created_at);
     return x.getFullYear()===target.y&&x.getMonth()===target.m&&x.getDate()===target.d;
   }).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+
+  const newestPost=posts.length ? posts[posts.length-1] : null;
+  const cover=(newestPost && hiResArtwork(newestPost.artwork_url||'')) || demoCoverForDate(target.y,target.m,target.d);
+  $('memoryHero').style.backgroundImage=`url('${esc(cover)}')`;
+  $('memoryDate').textContent=`${target.y}年${target.m+1}月${target.d}日`;
 
   $('memoryPosts').innerHTML=posts.map(p=>`
     <div class="card">

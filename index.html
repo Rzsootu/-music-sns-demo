@@ -122,6 +122,37 @@ background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);-webkit-background-clip:t
 .collectionPickerList{max-height:44vh;overflow:auto;margin:12px 0}
 .collectionPickerItem{width:100%;text-align:left;margin-bottom:8px}
 
+.musicSearchRow{display:flex;gap:8px}
+.musicSearchRow .field{margin:0;flex:1}
+.musicResults{max-height:42vh;overflow:auto;margin:12px 0}
+.musicResult{
+  display:flex;gap:11px;align-items:center;width:100%;
+  padding:10px;border:1px solid #282a31;border-radius:15px;
+  background:#13151b;color:#fff;text-align:left;margin-bottom:8px
+}
+.musicResult img,.postArtwork{
+  width:58px;height:58px;border-radius:12px;object-fit:cover;flex:0 0 auto
+}
+.musicResult .grow{min-width:0}
+.musicResult .song,.musicResult .artist{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.musicResultActions{display:flex;gap:6px;margin-top:7px;flex-wrap:wrap}
+.selectedTrack{
+  display:none;align-items:center;gap:12px;
+  padding:10px;border:1px solid #363946;border-radius:16px;
+  margin:12px 0;background:#151720
+}
+.selectedTrack.show{display:flex}
+.selectedTrack img{width:66px;height:66px;border-radius:14px;object-fit:cover}
+.previewBtn.playing{background:#fff;color:#111}
+.postMusicHead{display:flex;gap:12px;align-items:center}
+.postMusicHead .grow{min-width:0}
+.postArtworkFallback{
+  width:58px;height:58px;border-radius:12px;background:#22252d;
+  display:flex;align-items:center;justify-content:center;font-size:25px;flex:0 0 auto
+}
+.appleLink{font-size:12px;text-decoration:none}
+
+
 
 
 #growth .card{padding:28px 16px}
@@ -347,7 +378,37 @@ background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);-webkit-background-clip:t
 </section>
 </div>
 <nav id="nav" class="bottom hidden"><button class="nav" onclick="go('home')">⌂<br>Feed</button><button class="nav" onclick="go('people')">⌕<br>People</button><button class="nav" onclick="go('messages')">💬<br>Chat</button><button class="nav" onclick="go('calendar')">▦<br>Calendar</button><button class="nav" onclick="go('profilePage')">●<br>Profile</button></nav>
-<div id="postModal" class="modal"><div class="sheet"><h2>今日を、1曲で。</h2><input id="song" class="field" placeholder="曲名"><input id="artist" class="field" placeholder="アーティスト"><input id="mood" class="field" placeholder="ひとこと"><button class="btn black" onclick="postMood()">投稿</button> <button class="btn" onclick="closePost()">閉じる</button></div></div><div id="collectionPickerModal" class="modal">
+<div id="postModal" class="modal">
+  <div class="sheet">
+    <h2>今日を、1曲で。</h2>
+
+    <div class="musicSearchRow">
+      <input id="musicSearch" class="field" placeholder="曲名・アーティストを検索" onkeydown="if(event.key==='Enter')searchMusic()">
+      <button class="btn black" type="button" onclick="searchMusic()">検索</button>
+    </div>
+
+    <div id="selectedTrack" class="selectedTrack">
+      <img id="selectedArtwork" alt="">
+      <div class="grow">
+        <div id="selectedSong" class="song"></div>
+        <div id="selectedArtist" class="artist"></div>
+        <div class="musicResultActions">
+          <button id="selectedPreviewBtn" class="btn previewBtn" type="button" onclick="previewSelectedTrack()">▶︎ 試聴</button>
+          <button class="btn" type="button" onclick="clearSelectedTrack()">選び直す</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="musicResults" class="musicResults"></div>
+
+    <input id="song" type="hidden">
+    <input id="artist" type="hidden">
+    <input id="mood" class="field" placeholder="ひとこと / #タグ">
+
+    <button class="btn black" onclick="postMood()">投稿</button>
+    <button class="btn" onclick="closePost()">閉じる</button>
+  </div>
+</div><div id="collectionPickerModal" class="modal">
   <div class="sheet">
     <h2>Collectionに追加</h2>
     <button class="btn black" style="width:100%" onclick="createCollectionFromPicker()">＋ 新しいCollection</button>
@@ -378,6 +439,181 @@ function show(id){document.querySelectorAll('.page').forEach(x=>x.classList.remo
 function esc(s=''){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function avatarText(u={}){const s=(u.display_name||u.username||'?').trim();return s.slice(0,2).toUpperCase()}
 
+let musicSearchResults=[];
+let selectedTrackData=null;
+let activePreviewAudio=null;
+let activePreviewButton=null;
+
+function hiResArtwork(url=''){
+  return url ? url.replace(/\/[0-9]+x[0-9]+bb\./,'/600x600bb.') : '';
+}
+
+function postArtworkHtml(p){
+  const art=hiResArtwork(p.artwork_url||'');
+  return art
+    ? `<img class="postArtwork" src="${esc(art)}" alt="">`
+    : `<div class="postArtworkFallback">🎵</div>`;
+}
+
+function musicActionsHtml(p){
+  let h='';
+  if(p.preview_url){
+    h+=`<button class="btn previewBtn" onclick="event.stopPropagation();playPreview('${esc(p.preview_url)}',this)">▶︎ 試聴</button> `;
+  }
+  if(p.track_url){
+    h+=`<a class="btn appleLink" href="${esc(p.track_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Apple Musicで開く</a>`;
+  }
+  return h ? `<div class="musicResultActions">${h}</div>` : '';
+}
+
+function stopPreview(){
+  if(activePreviewAudio){
+    activePreviewAudio.pause();
+    activePreviewAudio.currentTime=0;
+  }
+  if(activePreviewButton){
+    activePreviewButton.textContent='▶︎ 試聴';
+    activePreviewButton.classList.remove('playing');
+  }
+  activePreviewAudio=null;
+  activePreviewButton=null;
+}
+
+function playPreview(url,btn){
+  if(!url)return pop('この曲は試聴できません');
+
+  if(activePreviewAudio && activePreviewButton===btn && !activePreviewAudio.paused){
+    stopPreview();
+    return;
+  }
+
+  stopPreview();
+  const audio=new Audio(url);
+  activePreviewAudio=audio;
+  activePreviewButton=btn;
+  btn.textContent='⏸ 停止';
+  btn.classList.add('playing');
+
+  audio.addEventListener('ended',stopPreview,{once:true});
+  audio.addEventListener('error',()=>{
+    stopPreview();
+    pop('試聴を再生できませんでした');
+  },{once:true});
+
+  audio.play().catch(()=>{
+    stopPreview();
+    pop('試聴を再生できませんでした');
+  });
+}
+
+function itunesSearch(query){
+  return new Promise((resolve,reject)=>{
+    const callback='mewItunes_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+    const script=document.createElement('script');
+    const timer=setTimeout(()=>{
+      cleanup();
+      reject(new Error('検索がタイムアウトしました'));
+    },10000);
+
+    function cleanup(){
+      clearTimeout(timer);
+      try{delete window[callback]}catch(e){}
+      script.remove();
+    }
+
+    window[callback]=(data)=>{
+      cleanup();
+      resolve(data);
+    };
+
+    script.onerror=()=>{
+      cleanup();
+      reject(new Error('検索に失敗しました'));
+    };
+
+    const params=new URLSearchParams({
+      term:query,
+      country:'JP',
+      media:'music',
+      entity:'song',
+      limit:'15',
+      callback
+    });
+
+    script.src='https://itunes.apple.com/search?'+params.toString();
+    document.body.appendChild(script);
+  });
+}
+
+async function searchMusic(){
+  const q=$('musicSearch').value.trim();
+  if(!q)return pop('曲名かアーティストを入力して');
+
+  $('musicResults').innerHTML='<div class="card muted">検索中…</div>';
+
+  try{
+    const data=await itunesSearch(q);
+    musicSearchResults=(data.results||[]).filter(x=>x.wrapperType==='track');
+
+    $('musicResults').innerHTML=musicSearchResults.length
+      ? musicSearchResults.map((x,i)=>`
+        <div class="musicResult">
+          <img src="${esc(hiResArtwork(x.artworkUrl100||''))}" alt="">
+          <div class="grow">
+            <div class="song">${esc(x.trackName||'')}</div>
+            <div class="artist">${esc(x.artistName||'')}</div>
+            <div class="musicResultActions">
+              ${x.previewUrl?`<button class="btn previewBtn" type="button" onclick="event.stopPropagation();playPreview('${esc(x.previewUrl)}',this)">▶︎ 試聴</button>`:''}
+              <button class="btn black" type="button" onclick="event.stopPropagation();selectMusicResult(${i})">この曲を選ぶ</button>
+            </div>
+          </div>
+        </div>`).join('')
+      : '<div class="card muted">曲が見つかりませんでした</div>';
+  }catch(e){
+    $('musicResults').innerHTML='<div class="card error">'+esc(e.message)+'</div>';
+  }
+}
+
+function selectMusicResult(i){
+  const x=musicSearchResults[i];
+  if(!x)return;
+
+  stopPreview();
+  selectedTrackData={
+    song_title:x.trackName||'',
+    artist_name:x.artistName||'',
+    preview_url:x.previewUrl||null,
+    artwork_url:hiResArtwork(x.artworkUrl100||''),
+    apple_track_id:x.trackId ? String(x.trackId) : null,
+    track_url:x.trackViewUrl||null
+  };
+
+  $('song').value=selectedTrackData.song_title;
+  $('artist').value=selectedTrackData.artist_name;
+  $('selectedArtwork').src=selectedTrackData.artwork_url||'';
+  $('selectedSong').textContent=selectedTrackData.song_title;
+  $('selectedArtist').textContent=selectedTrackData.artist_name;
+  $('selectedPreviewBtn').style.display=selectedTrackData.preview_url?'inline-block':'none';
+  $('selectedTrack').classList.add('show');
+  $('musicResults').innerHTML='';
+  $('musicSearch').value='';
+}
+
+function previewSelectedTrack(){
+  if(!selectedTrackData?.preview_url)return pop('この曲は試聴できません');
+  playPreview(selectedTrackData.preview_url,$('selectedPreviewBtn'));
+}
+
+function clearSelectedTrack(){
+  stopPreview();
+  selectedTrackData=null;
+  $('song').value='';
+  $('artist').value='';
+  $('selectedTrack').classList.remove('show');
+}
+
+
+
 function hashtagText(s=''){
   const safe=esc(s);
   return safe.replace(/(^|[\s　])(#[^\s　#]+)/g,(m,pre,tag)=>{
@@ -386,7 +622,7 @@ function hashtagText(s=''){
   });
 }
 function postCardForTag(p,username='user'){
-  return `<div class="card"><div class="row"><div class="cover">🎵</div><div class="grow"><div class="song">${esc(p.song_title||'今日の1曲')}</div><div class="artist">${esc(p.artist_name||'')}</div><div class="time">@${esc(username)}</div></div></div><p>${hashtagText(p.mood_text||'')}</p></div>`;
+  return `<div class="card"><div class="postMusicHead">${postArtworkHtml(p)}<div class="grow"><div class="song">${esc(p.song_title||'今日の1曲')}</div><div class="artist">${esc(p.artist_name||'')}</div><div class="time">@${esc(username)}</div></div></div><p>${hashtagText(p.mood_text||'')}</p>${musicActionsHtml(p)}</div>`;
 }
 
 function pop(t){$('toast').textContent=t;$('toast').style.display='block';setTimeout(()=>$('toast').style.display='none',2000)}
@@ -421,7 +657,7 @@ function formatPostDate(ts){
 
 async function feed(){
   await loadPinnedPosts();
-  let r=await sb.from('posts').select('id,user_id,song_title,artist_name,mood_text,created_at').order('created_at',{ascending:false});
+  let r=await sb.from('posts').select('id,user_id,song_title,artist_name,mood_text,created_at,preview_url,artwork_url,apple_track_id,track_url').order('created_at',{ascending:false});
   if(r.error){
     $('feed').innerHTML='<div class="card error">'+esc(r.error.message)+'</div>';
     $('recentFeed').innerHTML='';
@@ -450,7 +686,7 @@ async function feed(){
   const todayPosts=allPosts.filter(isToday);
   const recentPosts=allPosts.filter(p=>!isToday(p));
 
-  const renderPost=p=>`<div class="card"><div class="row"><div class="cover">🎵</div><div class="grow"><div class="song">${esc(p.song_title||'今日の1曲')}</div><div class="artist">${esc(p.artist_name||'')}</div><div class="time">@${esc(pm[p.user_id]?.username||'user')}</div><div class="postDate">${esc(formatPostDate(p.created_at))}</div></div></div><p>${hashtagText(p.mood_text||'')}</p><button class="btn ${liked.has(String(p.id))?'likeOn':''}" onclick="like('${p.id}',this)">${liked.has(String(p.id))?'♥ いいね':'♡ いいね'}</button> ${p.user_id!==me.id?`<button class="btn" onclick="openChatWith('${p.user_id}')">💬 Chat</button>`:`<button class="btn" onclick="togglePin('${p.id}',this)">${pinnedPostIds.has(String(p.id))?'📌 固定済み':'📌 固定'}</button> <button class="btn" onclick="openCollectionPicker('${p.id}')">＋ Collection</button> <button class="btn" onclick="deletePost('${p.id}')">🗑 削除</button>`}</div>`;
+  const renderPost=p=>`<div class="card"><div class="postMusicHead">${postArtworkHtml(p)}<div class="grow"><div class="song">${esc(p.song_title||'今日の1曲')}</div><div class="artist">${esc(p.artist_name||'')}</div><div class="time">@${esc(pm[p.user_id]?.username||'user')}</div><div class="postDate">${esc(formatPostDate(p.created_at))}</div></div></div><p>${hashtagText(p.mood_text||'')}</p>${musicActionsHtml(p)}<div style="margin-top:8px"><button class="btn ${liked.has(String(p.id))?'likeOn':''}" onclick="like('${p.id}',this)">${liked.has(String(p.id))?'♥ いいね':'♡ いいね'}</button> ${p.user_id!==me.id?`<button class="btn" onclick="openChatWith('${p.user_id}')">💬 Chat</button>`:`<button class="btn" onclick="togglePin('${p.id}',this)">${pinnedPostIds.has(String(p.id))?'📌 固定済み':'📌 固定'}</button> <button class="btn" onclick="openCollectionPicker('${p.id}')">＋ Collection</button> <button class="btn" onclick="deletePost('${p.id}')">🗑 削除</button>`}</div></div>`;
 
   $('feed').innerHTML=todayPosts.map(renderPost).join('')
     || '<div class="card muted">今日の投稿はまだありません</div>';
@@ -462,11 +698,21 @@ async function feed(){
   renderGrowth();
 }
 
-function openPost(){$('postModal').style.display='flex'}function closePost(){$('postModal').style.display='none'}
+function openPost(){
+  clearSelectedTrack();
+  $('musicSearch').value='';
+  $('musicResults').innerHTML='';
+  $('mood').value='';
+  $('postModal').style.display='flex';
+}
+function closePost(){
+  stopPreview();
+  $('postModal').style.display='none';
+}
 let isPosting=false;
 async function postMood(){
   if(isPosting)return;
-  if(!$('song').value.trim())return pop('曲名を入力して');
+  if(!selectedTrackData)return pop('検索結果から曲を選んで');
 
   isPosting=true;
   const btn=document.querySelector('#postModal .black');
@@ -475,11 +721,17 @@ async function postMood(){
     btn.textContent='投稿中…';
   }
 
+  if(!selectedTrackData)return pop('検索結果から曲を選んで');
+
   let r=await sb.from('posts').insert({
     user_id:me.id,
-    song_title:$('song').value.trim(),
-    artist_name:$('artist').value.trim(),
-    mood_text:$('mood').value.trim()
+    song_title:selectedTrackData.song_title,
+    artist_name:selectedTrackData.artist_name,
+    mood_text:$('mood').value.trim(),
+    preview_url:selectedTrackData.preview_url,
+    artwork_url:selectedTrackData.artwork_url,
+    apple_track_id:selectedTrackData.apple_track_id,
+    track_url:selectedTrackData.track_url
   });
 
   if(r.error){
@@ -492,6 +744,8 @@ async function postMood(){
   }
 
   $('song').value=$('artist').value=$('mood').value='';
+  selectedTrackData=null;
+  $('selectedTrack').classList.remove('show');
   closePost();
   await feed();
 
@@ -870,10 +1124,13 @@ async function openCollection(collectionId){
 
   $('collectionDetailPosts').innerHTML=posts.map(x=>`
     <div class="card">
-      <div class="song">${esc(x.song_title||'今日の1曲')}</div>
-      <div class="artist">${esc(x.artist_name||'')}</div>
-      <div class="postDate">${esc(formatPostDate(x.created_at))}</div>
+      <div class="postMusicHead">${postArtworkHtml(x)}<div class="grow">
+        <div class="song">${esc(x.song_title||'今日の1曲')}</div>
+        <div class="artist">${esc(x.artist_name||'')}</div>
+        <div class="postDate">${esc(formatPostDate(x.created_at))}</div>
+      </div></div>
       ${x.mood_text?`<p>${hashtagText(x.mood_text)}</p>`:''}
+      ${musicActionsHtml(x)}
       <button class="btn" onclick="removeFromCollection('${x.id}')">Collectionから外す</button>
     </div>`).join('');
 
@@ -1099,15 +1356,18 @@ async function myprofile(){
   $('pc').textContent=a.count||0;
   $('fc').textContent=b.count||0;
   $('fg').textContent=c.count||0;
-  $('mine').innerHTML=(d.data||[]).map(p=>`<div class="card"><b>${esc(p.song_title||'')}</b><div class="artist">${esc(p.artist_name||'')}</div><div class="postDate">${esc(formatPostDate(p.created_at))}</div><p>${hashtagText(p.mood_text||'')}</p><button class="btn" onclick="togglePin('${p.id}',this,'profile')">${pinnedPostIds.has(String(p.id))?'📌 固定済み':'📌 固定'}</button> <button class="btn" onclick="openCollectionPicker('${p.id}')">＋ Collection</button> <button class="btn" onclick="deletePost('${p.id}','profile')">🗑 削除</button></div>`).join('')||'<div class="card">まだ投稿なし</div>';
+  $('mine').innerHTML=(d.data||[]).map(p=>`<div class="card"><div class="postMusicHead">${postArtworkHtml(p)}<div class="grow"><b>${esc(p.song_title||'')}</b><div class="artist">${esc(p.artist_name||'')}</div><div class="postDate">${esc(formatPostDate(p.created_at))}</div></div></div><p>${hashtagText(p.mood_text||'')}</p>${musicActionsHtml(p)}<div style="margin-top:8px"><button class="btn" onclick="togglePin('${p.id}',this,'profile')">${pinnedPostIds.has(String(p.id))?'📌 固定済み':'📌 固定'}</button> <button class="btn" onclick="openCollectionPicker('${p.id}')">＋ Collection</button> <button class="btn" onclick="deletePost('${p.id}','profile')">🗑 削除</button></div></div>`).join('')||'<div class="card">まだ投稿なし</div>';
   const pinnedPosts=(d.data||[]).filter(p=>pinnedPostIds.has(String(p.id)));
   $('pinnedWrap').style.display=pinnedPosts.length?'block':'none';
   $('pinnedMine').innerHTML=pinnedPosts.map(p=>`
     <div class="card" style="margin:8px 0">
-      <div class="song">${esc(p.song_title||'今日の1曲')}</div>
-      <div class="artist">${esc(p.artist_name||'')}</div>
-      <div class="postDate">${esc(formatPostDate(p.created_at))}</div>
+      <div class="postMusicHead">${postArtworkHtml(p)}<div class="grow">
+        <div class="song">${esc(p.song_title||'今日の1曲')}</div>
+        <div class="artist">${esc(p.artist_name||'')}</div>
+        <div class="postDate">${esc(formatPostDate(p.created_at))}</div>
+      </div></div>
       ${p.mood_text?`<p>${hashtagText(p.mood_text)}</p>`:''}
+      ${musicActionsHtml(p)}
       <button class="btn" onclick="togglePin('${p.id}',this,'profile')">📌 固定を外す</button>
     </div>`).join('');
 
@@ -1329,13 +1589,18 @@ function renderMemoryDay(){
 
   $('memoryPosts').innerHTML=posts.map(p=>`
     <div class="card">
-      <div class="song">${esc(p.song_title||'今日の1曲')}</div>
-      <div class="artist">${esc(p.artist_name||'')}</div>
-      <div class="postDate">${esc(formatPostDate(p.created_at))}</div>
+      <div class="postMusicHead">${postArtworkHtml(p)}<div class="grow">
+        <div class="song">${esc(p.song_title||'今日の1曲')}</div>
+        <div class="artist">${esc(p.artist_name||'')}</div>
+        <div class="postDate">${esc(formatPostDate(p.created_at))}</div>
+      </div></div>
       ${p.mood_text?`<p>${hashtagText(p.mood_text)}</p>`:''}
-      <button class="btn" onclick="togglePin('${p.id}',this,'memory')">${pinnedPostIds.has(String(p.id))?'📌 固定済み':'📌 固定'}</button>
-      <button class="btn" onclick="openCollectionPicker('${p.id}')">＋ Collection</button>
-      <button class="btn" onclick="deletePost('${p.id}','memory')">🗑 削除</button>
+      ${musicActionsHtml(p)}
+      <div style="margin-top:8px">
+        <button class="btn" onclick="togglePin('${p.id}',this,'memory')">${pinnedPostIds.has(String(p.id))?'📌 固定済み':'📌 固定'}</button>
+        <button class="btn" onclick="openCollectionPicker('${p.id}')">＋ Collection</button>
+        <button class="btn" onclick="deletePost('${p.id}','memory')">🗑 削除</button>
+      </div>
     </div>`).join('');
 
   $('memoryPrev').disabled=memoryDateIndex<=0;

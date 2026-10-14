@@ -185,7 +185,7 @@ background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);-webkit-background-clip:t
   width:42px;height:42px;border-radius:50%;
   background:linear-gradient(145deg,#f0c9c8,#9587ef);
   display:flex;align-items:center;justify-content:center;
-  font-weight:900;color:#111;flex:0 0 auto;border:1px solid rgba(255,255,255,.35)
+  font-weight:900;color:#111;flex:0 0 auto;border:1px solid rgba(255,255,255,.35);font-size:12px;letter-spacing:-.3px
 }
 .feedUser{font-weight:850;line-height:1.15}
 .feedMeta{font-size:11px;color:#8c8e98;margin-top:3px}
@@ -562,7 +562,7 @@ const APP_URL='https://rzsootu.github.io/-music-sns-demo/';
 const $=id=>document.getElementById(id);
 function show(id){document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));$(id).classList.add('active')}
 function esc(s=''){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function avatarText(u={}){const s=(u.display_name||u.username||'?').trim();return s.slice(0,2).toUpperCase()}
+function avatarText(u={}){const s=(u.display_name||u.username||'?').trim();return s.slice(0,4).toUpperCase()}
 function officialBadge(u={}){
   return u?.is_official ? '<span class="officialBadge">✓</span>' : '';
 }
@@ -2003,12 +2003,25 @@ async function getOrCreateConversation(otherId){
 async function openChatWith(otherId){
   try{
     activeChatUser=await getProfileById(otherId);
-    activeConversation=await getOrCreateConversation(otherId);
+
+    let r=await sb.from('conversations').select('*')
+      .or(`and(user1_id.eq.${me.id},user2_id.eq.${otherId}),and(user1_id.eq.${otherId},user2_id.eq.${me.id})`)
+      .limit(1);
+
+    if(r.error)throw r.error;
+
+    activeConversation=(r.data&&r.data.length)?r.data[0]:null;
+
     $('chatName').textContent='@'+(activeChatUser.username||'user');
     $('chatAv').textContent=avatarText(activeChatUser);
     $('chatPage').classList.add('open');
-    await loadMessages();
-    subscribeToMessages();
+
+    if(activeConversation){
+      await loadMessages();
+      subscribeToMessages();
+    }else{
+      $('chatMessages').innerHTML='<div class="muted" style="text-align:center;margin-top:30px">最初のメッセージを送ってみよう</div>';
+    }
   }catch(e){pop(e.message)}
 }
 function closeChat(){
@@ -2062,26 +2075,103 @@ async function loadMessages(){
   $('chatMessages').scrollTop=$('chatMessages').scrollHeight;
 }
 async function sendMessage(){
-  if(!activeConversation)return;
   let t=$('chatInput').value.trim();
-  if(!t)return;
+  if(!t||!activeChatUser)return;
+
   $('chatInput').value='';
-  let r=await sb.from('messages').insert({conversation_id:activeConversation.id,sender_id:me.id,message_text:t});
-  if(r.error){$('chatInput').value=t;return pop(r.error.message)}
-  await loadMessages();
+
+  try{
+    if(!activeConversation){
+      activeConversation=await getOrCreateConversation(activeChatUser.id);
+      subscribeToMessages();
+    }
+
+    let r=await sb.from('messages').insert({
+      conversation_id:activeConversation.id,
+      sender_id:me.id,
+      message_text:t
+    });
+
+    if(r.error)throw r.error;
+
+    await loadMessages();
+  }catch(e){
+    $('chatInput').value=t;
+    pop(e.message);
+  }
 }
 async function loadChats(){
   let r=await sb.from('conversations').select('*')
-    .or(`user1_id.eq.${me.id},user2_id.eq.${me.id}`).order('created_at',{ascending:false});
-  if(r.error){$('chatList').innerHTML='<div class="card error">'+esc(r.error.message)+'</div>';return}
-  let rows=r.data||[];
-  if(!rows.length){$('chatList').innerHTML='<div class="card muted">まだチャットはありません。Feedの「💬 Chat」から始められるよ。</div>';return}
+    .or(`user1_id.eq.${me.id},user2_id.eq.${me.id}`);
+
+  if(r.error){
+    $('chatList').innerHTML='<div class="card error">'+esc(r.error.message)+'</div>';
+    return;
+  }
+
+  const conversations=r.data||[];
+
+  if(!conversations.length){
+    $('chatList').innerHTML='<div class="card muted">まだメッセージはありません。</div>';
+    return;
+  }
+
+  const conversationIds=conversations.map(c=>c.id);
+
+  let mr=await sb.from('messages')
+    .select('id,conversation_id,sender_id,message_text,created_at')
+    .in('conversation_id',conversationIds)
+    .order('created_at',{ascending:false});
+
+  if(mr.error){
+    $('chatList').innerHTML='<div class="card error">'+esc(mr.error.message)+'</div>';
+    return;
+  }
+
+  // 1件以上メッセージがある会話だけDM一覧に表示
+  const latestByConversation=new Map();
+  (mr.data||[]).forEach(m=>{
+    const key=String(m.conversation_id);
+    if(!latestByConversation.has(key))latestByConversation.set(key,m);
+  });
+
+  let rows=conversations
+    .filter(c=>latestByConversation.has(String(c.id)))
+    .sort((a,b)=>{
+      const am=latestByConversation.get(String(a.id));
+      const bm=latestByConversation.get(String(b.id));
+      return new Date(bm.created_at)-new Date(am.created_at);
+    });
+
+  if(!rows.length){
+    $('chatList').innerHTML='<div class="card muted">まだメッセージはありません。</div>';
+    return;
+  }
+
   let otherIds=[...new Set(rows.map(c=>c.user1_id===me.id?c.user2_id:c.user1_id))];
-  let p=await sb.from('profiles').select('id,username,display_name').in('id',otherIds),pm={};
+
+  let p=await sb.from('profiles')
+    .select('id,username,display_name,is_official')
+    .in('id',otherIds);
+
+  let pm={};
   (p.data||[]).forEach(x=>pm[x.id]=x);
+
   $('chatList').innerHTML=rows.map(c=>{
-    let oid=c.user1_id===me.id?c.user2_id:c.user1_id,u=pm[oid]||{username:'user'};
-    return `<div class="card chatListItem" onclick="openChatWith('${oid}')"><div class="avatar">${esc(avatarText(u))}</div><div class="chatMeta"><b>@${esc(u.username||'user')}</b><div class="muted">${esc(u.display_name||'')}</div></div><button class="btn">開く</button></div>`;
+    const oid=c.user1_id===me.id?c.user2_id:c.user1_id;
+    const u=pm[oid]||{username:'user'};
+    const lm=latestByConversation.get(String(c.id));
+    const mine=lm?.sender_id===me.id;
+    const preview=(mine?'あなた: ':'')+(lm?.message_text||'');
+
+    return `<div class="card chatListItem" onclick="openChatWith('${oid}')">
+      <div class="avatar">${esc(avatarText(u))}</div>
+      <div class="chatMeta">
+        <b>@${esc(u.username||'user')} ${officialBadge(u)}</b>
+        <div class="muted">${esc(preview)}</div>
+      </div>
+      <div class="muted" style="font-size:11px">${esc(formatPostDate(lm.created_at))}</div>
+    </div>`;
   }).join('');
 }
 

@@ -848,8 +848,8 @@ async function feed(){
       : '';
     return `<div class="feedPost">
       <div class="feedPostHead">
-        <div class="feedAvatar">${esc(avatarText(u))}</div>
-        <div>
+        <div class="feedAvatar" style="cursor:pointer" onclick="openPublicProfile('${p.user_id}','home')">${esc(avatarText(u))}</div>
+        <div style="cursor:pointer" onclick="openPublicProfile('${p.user_id}','home')">
           <div class="feedUser">@${esc(u.username||'user')}</div>
           <div class="feedMeta">${esc(formatPostDate(p.created_at))}</div>
         </div>
@@ -1061,7 +1061,7 @@ async function openPublicProfile(id,back='people'){
 
     let [u,posts,followers,following,followState,requestState]=await Promise.all([
       sb.from('profiles').select('id,username,display_name,bio,is_private').eq('id',id).single(),
-      sb.from('posts').select('id,song_title,artist_name,mood_text,created_at').eq('user_id',id).order('created_at',{ascending:false}),
+      sb.from('posts').select('id,song_title,artist_name,mood_text,created_at,preview_url,artwork_url,apple_track_id,track_url').eq('user_id',id).order('created_at',{ascending:false}),
       sb.from('follows').select('*',{count:'exact',head:true}).eq('following_id',id),
       sb.from('follows').select('*',{count:'exact',head:true}).eq('follower_id',id),
       sb.from('follows').select('*').eq('follower_id',me.id).eq('following_id',id).maybeSingle(),
@@ -1089,9 +1089,16 @@ async function openPublicProfile(id,back='people'){
     }else{
       $('opposts').innerHTML=visiblePosts.map(p=>`
         <div class="card">
-          <b>${esc(p.song_title||'今日の1曲')}</b>
-          <div class="artist">${esc(p.artist_name||'')}</div>
-          <p>${hashtagText(p.mood_text||'')}</p>
+          <div class="postMusicHead">
+            ${postArtworkHtml(p)}
+            <div class="grow">
+              <div class="song">${esc(p.song_title||'今日の1曲')}</div>
+              <div class="artist">${esc(p.artist_name||'')}</div>
+              <div class="postDate">${esc(formatPostDate(p.created_at))}</div>
+            </div>
+          </div>
+          ${p.mood_text?`<p>${hashtagText(p.mood_text)}</p>`:''}
+          ${musicActionsHtml(p)}
         </div>`).join('')||'<div class="card muted">まだ投稿なし</div>';
     }
   }catch(e){
@@ -1153,6 +1160,8 @@ async function togglePublicFollow(){
 function backFromPublicProfile(){
   if(publicProfileBack==='followers'||publicProfileBack==='following'){
     openFollowList(publicProfileBack);
+  }else if(publicProfileBack==='home'){
+    go('home');
   }else{
     go('people');
   }

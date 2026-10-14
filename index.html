@@ -217,6 +217,15 @@ background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);-webkit-background-clip:t
 }
 .feedIconBtn.likeOn{border-color:#b178ff;background:#261c35}
 .feedCount{font-size:12px;color:#9a9ca6;margin-left:-2px}
+.officialBadge{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:17px;height:17px;border-radius:50%;
+  background:#4da3ff;color:#fff;font-size:11px;font-weight:900;
+  margin-left:5px;vertical-align:middle
+}
+.savedOn{background:#f0e7ff!important;color:#7047d8!important;border-color:#b9a2ff!important}
+.savedSectionTitle{margin:14px 0 8px}
+
 .feedChevron{margin-left:auto}
 .postMenuSheet{padding-bottom:calc(18px + env(safe-area-inset-bottom))}
 .postMenuItem{
@@ -405,6 +414,7 @@ background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);-webkit-background-clip:t
 <div class="profileTabs">
   <button id="postsTabBtn" class="btn profileTab active" onclick="switchProfileTab('posts')">Posts</button>
   <button id="collectionsTabBtn" class="btn profileTab" onclick="switchProfileTab('collections')">Collections</button>
+  <button id="savedTabBtn" class="btn profileTab" onclick="switchProfileTab('saved')">Saved</button>
 </div>
 
 <div id="profilePostsPane">
@@ -420,6 +430,11 @@ background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);-webkit-background-clip:t
 <div id="profileCollectionsPane" style="display:none">
   <button class="btn black" style="width:100%;margin-bottom:12px" onclick="createCollection()">＋ Collectionを作る</button>
   <div id="collectionsGrid" class="collectionGrid"></div>
+</div>
+
+<div id="profileSavedPane" style="display:none">
+  <h3 class="savedSectionTitle">Saved Melodies</h3>
+  <div id="savedPostsList"></div>
 </div>
 </section>
 
@@ -548,6 +563,9 @@ const $=id=>document.getElementById(id);
 function show(id){document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));$(id).classList.add('active')}
 function esc(s=''){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function avatarText(u={}){const s=(u.display_name||u.username||'?').trim();return s.slice(0,2).toUpperCase()}
+function officialBadge(u={}){
+  return u?.is_official ? '<span class="officialBadge">✓</span>' : '';
+}
 
 let musicSearchResults=[];
 let selectedTrackData=null;
@@ -793,6 +811,7 @@ function renderAnnouncements(){
 }
 
 async function feed(){
+  await loadSavedPosts();
   await loadAnnouncements();
   await loadPinnedPosts();
   let r=await sb.from('posts').select('id,user_id,song_title,artist_name,mood_text,created_at,preview_url,artwork_url,apple_track_id,track_url').order('created_at',{ascending:false});
@@ -806,7 +825,7 @@ async function feed(){
 
   let ids=[...new Set(allPosts.map(x=>x.user_id))],pm={};
   if(ids.length){
-    let p=await sb.from('profiles').select('id,username,display_name').in('id',ids);
+    let p=await sb.from('profiles').select('id,username,display_name,is_official').in('id',ids);
     (p.data||[]).forEach(x=>pm[x.id]=x);
   }
 
@@ -850,7 +869,7 @@ async function feed(){
       <div class="feedPostHead">
         <div class="feedAvatar" style="cursor:pointer" onclick="openPublicProfile('${p.user_id}','home')">${esc(avatarText(u))}</div>
         <div style="cursor:pointer" onclick="openPublicProfile('${p.user_id}','home')">
-          <div class="feedUser">@${esc(u.username||'user')}</div>
+          <div class="feedUser">@${esc(u.username||'user')} ${officialBadge(u)}</div>
           <div class="feedMeta">${esc(formatPostDate(p.created_at))}</div>
         </div>
         <button class="kebab" onclick="openPostMenu('${p.id}')">⋮</button>
@@ -875,6 +894,7 @@ async function feed(){
           ${liked.has(String(p.id))?'♥':'♡'}
         </button>
         <span class="feedCount">${likeCounts[String(p.id)]||0}</span>
+        <button class="feedIconBtn ${savedPostIds.has(String(p.id))?'savedOn':''}" onclick="toggleSave('${p.id}',this)">🔖</button>
         ${!own?`<button class="feedIconBtn" onclick="openChatWith('${p.user_id}')">💬</button>`:''}
         <button class="feedIconBtn feedChevron" onclick="openPostMenu('${p.id}')">⌄</button>
       </div>
@@ -1031,7 +1051,7 @@ async function users(){
     return;
   }
   let r=await sb.from('profiles')
-    .select('id,username,display_name')
+    .select('id,username,display_name,is_official')
     .neq('id',me.id)
     .or(`username.ilike.%${q}%,display_name.ilike.%${q}%`)
     .limit(30);
@@ -1043,7 +1063,7 @@ async function users(){
     <div class="searchUser" onclick="openPublicProfile('${u.id}','people')">
       <div class="avatar">${esc(avatarText(u))}</div>
       <div class="grow">
-        <b>@${esc(u.username||'user')}</b>
+        <b>@${esc(u.username||'user')} ${officialBadge(u)}</b>
         <div class="muted">${esc(u.display_name||'')}</div>
       </div>
       <div class="muted" style="font-size:20px">›</div>
@@ -1060,7 +1080,7 @@ async function openPublicProfile(id,back='people'){
     scrollTo(0,0);
 
     let [u,posts,followers,following,followState,requestState]=await Promise.all([
-      sb.from('profiles').select('id,username,display_name,bio,is_private').eq('id',id).single(),
+      sb.from('profiles').select('id,username,display_name,bio,is_private,is_official').eq('id',id).single(),
       sb.from('posts').select('id,song_title,artist_name,mood_text,created_at,preview_url,artwork_url,apple_track_id,track_url').eq('user_id',id).order('created_at',{ascending:false}),
       sb.from('follows').select('*',{count:'exact',head:true}).eq('following_id',id),
       sb.from('follows').select('*',{count:'exact',head:true}).eq('follower_id',id),
@@ -1072,8 +1092,8 @@ async function openPublicProfile(id,back='people'){
 
     publicProfileUser=u.data;
     $('opav').textContent=avatarText(publicProfileUser);
-    $('opname').textContent=publicProfileUser.display_name||publicProfileUser.username||'User';
-    $('opusername').textContent='@'+(publicProfileUser.username||'user');
+    $('opname').innerHTML=esc(publicProfileUser.display_name||publicProfileUser.username||'User')+' '+officialBadge(publicProfileUser);
+    $('opusername').innerHTML='@'+esc(publicProfileUser.username||'user')+' '+officialBadge(publicProfileUser);
     $('opbio').textContent=publicProfileUser.bio||'';
     $('oppc').textContent=(posts.data||[]).length;
     $('opfc').textContent=followers.count||0;
@@ -1217,11 +1237,19 @@ let currentCollectionId=null;
 
 function switchProfileTab(tab){
   const posts=tab==='posts';
+  const collections=tab==='collections';
+  const saved=tab==='saved';
+
   $('profilePostsPane').style.display=posts?'block':'none';
-  $('profileCollectionsPane').style.display=posts?'none':'block';
+  $('profileCollectionsPane').style.display=collections?'block':'none';
+  $('profileSavedPane').style.display=saved?'block':'none';
+
   $('postsTabBtn').classList.toggle('active',posts);
-  $('collectionsTabBtn').classList.toggle('active',!posts);
-  if(!posts)loadCollections();
+  $('collectionsTabBtn').classList.toggle('active',collections);
+  $('savedTabBtn').classList.toggle('active',saved);
+
+  if(collections)loadCollections();
+  if(saved)renderSavedPosts();
 }
 
 async function loadCollections(){
@@ -1501,6 +1529,71 @@ async function deleteCurrentCollection(){
   switchProfileTab('collections');
 }
 
+let savedPostIds=new Set();
+
+async function loadSavedPosts(){
+  if(!me)return;
+  const r=await sb.from('saved_posts').select('post_id').eq('user_id',me.id);
+  if(r.error){console.error(r.error);return}
+  savedPostIds=new Set((r.data||[]).map(x=>String(x.post_id)));
+}
+
+async function toggleSave(postId,btn){
+  const id=String(postId);
+  if(savedPostIds.has(id)){
+    const r=await sb.from('saved_posts').delete().eq('user_id',me.id).eq('post_id',postId);
+    if(r.error)return pop('保存解除できませんでした：'+r.error.message);
+    savedPostIds.delete(id);
+    btn?.classList.remove('savedOn');
+    pop('保存を解除しました');
+  }else{
+    const r=await sb.from('saved_posts').insert({user_id:me.id,post_id:postId});
+    if(r.error)return pop('保存できませんでした：'+r.error.message);
+    savedPostIds.add(id);
+    btn?.classList.add('savedOn');
+    pop('保存しました');
+  }
+}
+
+async function renderSavedPosts(){
+  await loadSavedPosts();
+  if(!savedPostIds.size){
+    $('savedPostsList').innerHTML='<div class="card">まだ保存した投稿はありません</div>';
+    return;
+  }
+
+  const p=await sb.from('posts').select('*').in('id',[...savedPostIds]).order('created_at',{ascending:false});
+  if(p.error){
+    $('savedPostsList').innerHTML='<div class="card">保存投稿を読み込めませんでした</div>';
+    return;
+  }
+
+  const userIds=[...new Set((p.data||[]).map(x=>x.user_id))];
+  let pm={};
+  if(userIds.length){
+    const pr=await sb.from('profiles').select('id,username,display_name,is_official').in('id',userIds);
+    (pr.data||[]).forEach(u=>pm[u.id]=u);
+  }
+
+  $('savedPostsList').innerHTML=(p.data||[]).map(x=>{
+    const u=pm[x.user_id]||{};
+    return `<div class="card">
+      <div class="postMusicHead">
+        ${postArtworkHtml(x)}
+        <div class="grow">
+          <div class="song">${esc(x.song_title||'今日の1曲')}</div>
+          <div class="artist">${esc(x.artist_name||'')}</div>
+          <div class="time">@${esc(u.username||'user')} ${officialBadge(u)}</div>
+          <div class="postDate">${esc(formatPostDate(x.created_at))}</div>
+        </div>
+      </div>
+      ${x.mood_text?`<p>${hashtagText(x.mood_text)}</p>`:''}
+      ${musicActionsHtml(x)}
+      <button class="btn savedOn" onclick="toggleSave('${x.id}',this);setTimeout(renderSavedPosts,150)">🔖 保存済み</button>
+    </div>`;
+  }).join('');
+}
+
 let pinnedPostIds=new Set();
 
 async function loadPinnedPosts(){
@@ -1605,7 +1698,7 @@ async function deletePost(postId,from='feed'){
 
 async function myprofile(){
   await loadPinnedPosts();
-  let pr=await sb.from('profiles').select('id,username,display_name,bio,is_private').eq('id',me.id).single();
+  let pr=await sb.from('profiles').select('id,username,display_name,bio,is_private,is_official').eq('id',me.id).single();
   if(!pr.error){
     prof=pr.data;
     $('privacyToggle').checked=!!prof.is_private;
@@ -1623,8 +1716,8 @@ async function myprofile(){
     sb.from('posts').select('*').eq('user_id',me.id).order('created_at',{ascending:false})
   ]);
 
-  $('pname').textContent=prof.display_name||prof.username;
-  $('pusername').textContent='@'+(prof.username||'user');
+  $('pname').innerHTML=esc(prof.display_name||prof.username)+' '+officialBadge(prof);
+  $('pusername').innerHTML='@'+esc(prof.username||'user')+' '+officialBadge(prof);
   $('pbio').textContent=prof.bio||'';
   $('pav').textContent=avatarText(prof);
   $('pc').textContent=a.count||0;

@@ -223,6 +223,7 @@ background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);-webkit-background-clip:t
   background:#4da3ff;color:#fff;font-size:11px;font-weight:900;
   margin-left:5px;vertical-align:middle
 }
+.feedIconBtn svg{display:block;margin:auto}
 .savedOn{background:#f0e7ff!important;color:#7047d8!important;border-color:#b9a2ff!important}
 .savedSectionTitle{margin:14px 0 8px}
 
@@ -405,22 +406,22 @@ background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);-webkit-background-clip:t
 <h2 id="pname"></h2>
 <div id="pusername" class="muted" style="margin-top:-8px"></div>
 <p id="pbio" style="white-space:pre-wrap;line-height:1.5"></p>
-<div><b id="pc">0</b> Posts　<span style="cursor:pointer" onclick="openFollowList('followers')"><b id="fc">0</b> Followers</span>　<span style="cursor:pointer" onclick="openFollowList('following')"><b id="fg">0</b> Following</span></div>
+<div><b id="pc">0</b> ポスト　<span style="cursor:pointer" onclick="openFollowList('followers')"><b id="fc">0</b> フォロワー</span>　<span style="cursor:pointer" onclick="openFollowList('following')"><b id="fg">0</b> フォロー中</span></div>
 <button class="btn" style="margin-top:14px;width:100%" onclick="openEditProfile()">プロフィールを編集</button>
 </div>
 <div id="followRequestEntry" class="card row" style="cursor:pointer" onclick="openFollowRequests()"><div class="grow"><b>フォローリクエスト</b><div class="muted" style="margin-top:4px">届いた申請を確認</div></div><span id="followRequestBadge" class="requestBadge hidden">0</span><span class="muted" style="font-size:20px">›</span></div>
 <div class="card privacyRow"><div><b>🔒 非公開アカウント</b><div id="privacyText" class="muted" style="margin-top:5px">公開中</div></div><label class="switch"><input id="privacyToggle" type="checkbox" onchange="togglePrivacy(this)"><span class="slider"></span></label></div>
 <button class="btn" onclick="logout()">ログアウト</button>
 <div class="profileTabs">
-  <button id="postsTabBtn" class="btn profileTab active" onclick="switchProfileTab('posts')">Posts</button>
-  <button id="collectionsTabBtn" class="btn profileTab" onclick="switchProfileTab('collections')">Collections</button>
-  <button id="savedTabBtn" class="btn profileTab" onclick="switchProfileTab('saved')">Saved</button>
+  <button id="postsTabBtn" class="btn profileTab active" onclick="switchProfileTab('posts')">ポスト</button>
+  <button id="collectionsTabBtn" class="btn profileTab" onclick="switchProfileTab('collections')">プレイリスト</button>
+  <button id="savedTabBtn" class="btn profileTab" onclick="switchProfileTab('saved')">保存済み</button>
 </div>
 
 <div id="profilePostsPane">
   <div id="pinnedWrap" class="card" style="display:none">
     <div class="row" style="margin-bottom:10px">
-      <b>📌 Pinned Melodies</b>
+      <b>📌 固定した投稿</b>
     </div>
     <div id="pinnedMine"></div>
   </div>
@@ -428,12 +429,12 @@ background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);-webkit-background-clip:t
 </div>
 
 <div id="profileCollectionsPane" style="display:none">
-  <button class="btn black" style="width:100%;margin-bottom:12px" onclick="createCollection()">＋ Collectionを作る</button>
+  <button class="btn black" style="width:100%;margin-bottom:12px" onclick="createCollection()">＋ プレイリストを作る</button>
   <div id="collectionsGrid" class="collectionGrid"></div>
 </div>
 
 <div id="profileSavedPane" style="display:none">
-  <h3 class="savedSectionTitle">Saved Melodies</h3>
+  <h3 class="savedSectionTitle">保存した投稿</h3>
   <div id="savedPostsList"></div>
 </div>
 </section>
@@ -441,7 +442,7 @@ background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);-webkit-background-clip:t
 <section id="collectionDetailPage" class="page">
   <div class="row" style="margin-top:8px">
     <button class="btn" onclick="show('profilePage');myprofile();switchProfileTab('collections');scrollTo(0,0)">‹</button>
-    <h3 id="collectionTitle" style="margin:0" class="grow">Collection</h3>
+    <h3 id="collectionTitle" style="margin:0" class="grow">プレイリスト</h3>
     <button class="btn" onclick="deleteCurrentCollection()">削除</button>
   </div>
   <button class="btn black" style="width:100%;margin:12px 0" onclick="openAddExistingPosts()">＋ 過去の投稿を追加</button>
@@ -458,6 +459,18 @@ background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);-webkit-background-clip:t
     <input id="editDisplayName" class="field" placeholder="表示名">
     <label class="muted">ユーザー名</label>
     <input id="editUsername" class="field" placeholder="username">
+    <div style="border-top:1px solid #30313a;margin:18px 0 12px;padding-top:14px">
+      <b>アイコンを編集</b>
+      <div class="avatar" id="avatarPreview" style="width:82px;height:82px;margin:14px auto;justify-content:center">?</div>
+      <label class="muted">アイコンの文字（最大6文字）</label>
+      <input id="editAvatarText" class="field" maxlength="12" placeholder="例：MEW" oninput="updateAvatarPreview()">
+      <label class="muted">表示する文字数：<b id="avatarLengthValue">2</b>文字</label>
+      <input id="editAvatarLength" type="range" min="1" max="6" value="2" style="width:100%;margin:10px 0" oninput="updateAvatarPreview()">
+      <div class="row" style="gap:14px">
+        <div class="grow"><label class="muted">背景色</label><input id="editAvatarBg" type="color" value="#A98BEB" style="width:100%;height:45px" oninput="updateAvatarPreview()"></div>
+        <div class="grow"><label class="muted">文字色</label><input id="editAvatarFg" type="color" value="#FFFFFF" style="width:100%;height:45px" oninput="updateAvatarPreview()"></div>
+      </div>
+    </div>
     <label class="muted">自己紹介</label>
     <textarea id="editBio" class="field" rows="5" maxlength="150" placeholder="自己紹介を書いてみよう"></textarea>
     <div class="muted" style="text-align:right;margin-top:4px"><span id="bioCount">0</span>/150</div>
@@ -476,7 +489,7 @@ background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);-webkit-background-clip:t
     <h2 id="opname" style="margin-bottom:3px"></h2>
     <div id="opusername" class="muted"></div><p id="opbio" style="white-space:pre-wrap;line-height:1.5"></p>
     <div class="publicStats">
-      <div><b id="oppc">0</b><span class="muted">Posts</span></div>
+      <div><b id="oppc">0</b><span class="muted">ポスト</span></div>
       <div><b id="opfc">0</b><span class="muted">Followers</span></div>
       <div><b id="opfg">0</b><span class="muted">Following</span></div>
     </div>
@@ -535,8 +548,8 @@ background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);-webkit-background-clip:t
   </div>
 </div><div id="collectionPickerModal" class="modal">
   <div class="sheet">
-    <h2>Collectionに追加</h2>
-    <button class="btn black" style="width:100%" onclick="createCollectionFromPicker()">＋ 新しいCollection</button>
+    <h2>プレイリストに追加</h2>
+    <button class="btn black" style="width:100%" onclick="createCollectionFromPicker()">＋ 新しいプレイリスト</button>
     <div id="collectionPickerList" class="collectionPickerList"></div>
     <button class="btn" style="width:100%" onclick="closeCollectionPicker()">閉じる</button>
   </div>
@@ -562,7 +575,19 @@ const APP_URL='https://rzsootu.github.io/-music-sns-demo/';
 const $=id=>document.getElementById(id);
 function show(id){document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));$(id).classList.add('active')}
 function esc(s=''){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function avatarText(u={}){const s=(u.display_name||u.username||'?').trim();return s.slice(0,4).toUpperCase()}
+function avatarText(u={}){
+  const raw=(u.avatar_text||u.display_name||u.username||'?').trim();
+  const length=Math.min(6,Math.max(1,Number(u.avatar_length)||2));
+  return Array.from(raw).slice(0,length).join('');
+}
+function avatarStyle(u={}){
+  const valid=v=>/^#[0-9a-fA-F]{6}$/.test(v||'');
+  const bg=valid(u.avatar_bg_color)?u.avatar_bg_color:'#A98BEB';
+  const fg=valid(u.avatar_text_color)?u.avatar_text_color:'#FFFFFF';
+  const n=Array.from(avatarText(u)).length;
+  return `background:${bg};color:${fg};font-size:${n>=5?'10px':n>=4?'12px':n>=3?'14px':'18px'};letter-spacing:-.4px;overflow:hidden;white-space:nowrap`;
+}
+function applyAvatar(el,u){if(!el)return;el.textContent=avatarText(u);el.style.cssText+=';'+avatarStyle(u)}
 function officialBadge(u={}){
   return u?.is_official ? '<span class="officialBadge">✓</span>' : '';
 }
@@ -746,7 +771,7 @@ function hideSplash(){
 async function boot(){hideSplash();try{sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);let r=await sb.auth.getSession();if(r.error)throw r.error;if(!r.data.session){$('nav').classList.add('hidden');$('floatingPostBtn')?.classList.add('hidden');show('auth');return}me=r.data.session.user;await ensureProfile();start()}catch(e){$('nav').classList.add('hidden');show('auth');$('msg').textContent=e.message}}
 async function signup(){try{let n=$('uname').value.trim();if(n.length<3)throw new Error('ユーザー名は3文字以上にしてね');let r=await sb.auth.signUp({email:$('email').value.trim(),password:$('pass').value,options:{emailRedirectTo:APP_URL,data:{username:n,display_name:n}}});if(r.error)throw r.error;if(!r.data.session){$('msg').textContent='確認メールを開いてからMeloryに戻ってログインしてね';return}me=r.data.user;await ensureProfile();start()}catch(e){$('msg').textContent=e.message}}
 async function login(){try{$('msg').textContent='ログイン中…';let r=await sb.auth.signInWithPassword({email:$('email').value.trim(),password:$('pass').value});if(r.error)throw r.error;me=r.data.user;await ensureProfile();$('msg').textContent='';start()}catch(e){$('msg').textContent=e.message}}
-function start(){$('nav').classList.remove('hidden');$('floatingPostBtn').classList.remove('hidden');$('av').textContent=avatarText(prof);go('home')}
+function start(){$('nav').classList.remove('hidden');$('floatingPostBtn').classList.remove('hidden');applyAvatar($('av'),prof);go('home')}
 function go(id){show(id);if(id==='home')feed();if(id==='people')users();if(id==='messages')loadChats();if(id==='profilePage'){myprofile();switchProfileTab('posts')}if(id==='calendar')renderCalendar();if(id==='growth')renderGrowth();scrollTo(0,0)}
 
 function formatPostDate(ts){
@@ -825,7 +850,7 @@ async function feed(){
 
   let ids=[...new Set(allPosts.map(x=>x.user_id))],pm={};
   if(ids.length){
-    let p=await sb.from('profiles').select('id,username,display_name,is_official').in('id',ids);
+    let p=await sb.from('profiles').select('id,username,display_name,is_official,avatar_text,avatar_length,avatar_bg_color,avatar_text_color').in('id',ids);
     (p.data||[]).forEach(x=>pm[x.id]=x);
   }
 
@@ -867,7 +892,7 @@ async function feed(){
       : '';
     return `<div class="feedPost">
       <div class="feedPostHead">
-        <div class="feedAvatar" style="cursor:pointer" onclick="openPublicProfile('${p.user_id}','home')">${esc(avatarText(u))}</div>
+        <div class="feedAvatar" style="${avatarStyle(u)};cursor:pointer" onclick="openPublicProfile('${p.user_id}','home')">${esc(avatarText(u))}</div>
         <div style="cursor:pointer" onclick="openPublicProfile('${p.user_id}','home')">
           <div class="feedUser">@${esc(u.username||'user')} ${officialBadge(u)}</div>
           <div class="feedMeta">${esc(formatPostDate(p.created_at))}</div>
@@ -894,7 +919,7 @@ async function feed(){
           ${liked.has(String(p.id))?'♥':'♡'}
         </button>
         <span class="feedCount">${likeCounts[String(p.id)]||0}</span>
-        <button class="feedIconBtn ${savedPostIds.has(String(p.id))?'savedOn':''}" onclick="toggleSave('${p.id}',this)">🔖</button>
+        <button class="feedIconBtn ${savedPostIds.has(String(p.id))?'savedOn':''}" aria-label="投稿を保存または保存解除" onclick="toggleSave('${p.id}',this)">${bookmarkIcon(savedPostIds.has(String(p.id)))}</button>
         ${!own?`<button class="feedIconBtn" onclick="openChatWith('${p.user_id}')">💬</button>`:''}
         <button class="feedIconBtn feedChevron" onclick="openPostMenu('${p.id}')">⌄</button>
       </div>
@@ -933,7 +958,7 @@ function openPostMenu(postId){
   if(own){
     items+=`
       <button class="postMenuItem" onclick="menuTogglePin()">📌 ${pinnedPostIds.has(String(p.id))?'固定を外す':'この投稿を固定する'}</button>
-      <button class="postMenuItem" onclick="menuAddCollection()">🔖 Collectionに追加</button>
+      <button class="postMenuItem" onclick="menuAddCollection()">🎵 プレイリストに追加</button>
       <button class="postMenuItem" onclick="copyPostLink()">↗ リンクをコピー</button>
       <button class="postMenuItem danger" onclick="menuDeletePost()">🗑 この投稿を削除</button>`;
   }else{
@@ -1051,7 +1076,7 @@ async function users(){
     return;
   }
   let r=await sb.from('profiles')
-    .select('id,username,display_name,is_official')
+    .select('id,username,display_name,is_official,avatar_text,avatar_length,avatar_bg_color,avatar_text_color')
     .neq('id',me.id)
     .or(`username.ilike.%${q}%,display_name.ilike.%${q}%`)
     .limit(30);
@@ -1061,7 +1086,7 @@ async function users(){
   }
   $('ulist').innerHTML=(r.data||[]).map(u=>`
     <div class="searchUser" onclick="openPublicProfile('${u.id}','people')">
-      <div class="avatar">${esc(avatarText(u))}</div>
+      <div class="avatar" style="${avatarStyle(u)}">${esc(avatarText(u))}</div>
       <div class="grow">
         <b>@${esc(u.username||'user')} ${officialBadge(u)}</b>
         <div class="muted">${esc(u.display_name||'')}</div>
@@ -1080,7 +1105,7 @@ async function openPublicProfile(id,back='people'){
     scrollTo(0,0);
 
     let [u,posts,followers,following,followState,requestState]=await Promise.all([
-      sb.from('profiles').select('id,username,display_name,bio,is_private,is_official').eq('id',id).single(),
+      sb.from('profiles').select('id,username,display_name,bio,is_private,is_official,avatar_text,avatar_length,avatar_bg_color,avatar_text_color').eq('id',id).single(),
       sb.from('posts').select('id,song_title,artist_name,mood_text,created_at,preview_url,artwork_url,apple_track_id,track_url').eq('user_id',id).order('created_at',{ascending:false}),
       sb.from('follows').select('*',{count:'exact',head:true}).eq('following_id',id),
       sb.from('follows').select('*',{count:'exact',head:true}).eq('follower_id',id),
@@ -1091,7 +1116,7 @@ async function openPublicProfile(id,back='people'){
     if(posts.error)throw posts.error;
 
     publicProfileUser=u.data;
-    $('opav').textContent=avatarText(publicProfileUser);
+    applyAvatar($('opav'),publicProfileUser);
     $('opname').innerHTML=esc(publicProfileUser.display_name||publicProfileUser.username||'User')+' '+officialBadge(publicProfileUser);
     $('opusername').innerHTML='@'+esc(publicProfileUser.username||'user')+' '+officialBadge(publicProfileUser);
     $('opbio').textContent=publicProfileUser.bio||'';
@@ -1214,7 +1239,7 @@ async function openHashtag(encodedTag){
     let pm={};
     const ids=[...new Set(exact.map(p=>p.user_id))];
     if(ids.length){
-      let u=await sb.from('profiles').select('id,username').in('id',ids);
+      let u=await sb.from('profiles').select('id,username,avatar_text,avatar_length,avatar_bg_color,avatar_text_color').in('id',ids);
       if(u.error)throw u.error;
       (u.data||[]).forEach(x=>pm[x.id]=x.username);
     }
@@ -1261,7 +1286,7 @@ async function loadCollections(){
 
   if(r.error){
     console.error(r.error);
-    $('collectionsGrid').innerHTML='<div class="card">Collectionsを読み込めませんでした</div>';
+    $('collectionsGrid').innerHTML='<div class="card">プレイリストを読み込めませんでした</div>';
     return;
   }
 
@@ -1289,14 +1314,14 @@ async function loadCollections(){
         </div>
         <div class="collectionCount">${counts[c.id]||0} melodies</div>
       </div>`).join('')
-    : '<div class="card" style="grid-column:1/-1">まだCollectionがありません</div>';
+    : '<div class="card" style="grid-column:1/-1">まだプレイリストがありません</div>';
 }
 
 async function createCollection(){
-  const name=prompt('Collection名を入力して');
+  const name=prompt('プレイリスト名を入力して');
   if(name===null)return;
   const clean=name.trim();
-  if(!clean)return pop('Collection名を入力して');
+  if(!clean)return pop('プレイリスト名を入力して');
 
   const r=await sb.from('collections').insert({
     user_id:me.id,
@@ -1308,12 +1333,12 @@ async function createCollection(){
   currentCollectionId=r.data.id;
   await loadCollections();
 
-  const addNow=confirm('Collectionを作成しました。\n今までの投稿から曲を追加しますか？');
+  const addNow=confirm('プレイリストを作成しました。\n今までの投稿から曲を追加しますか？');
   if(addNow){
     await openCollection(currentCollectionId);
     await openAddExistingPosts();
   }else{
-    pop('Collectionを作成しました');
+    pop('プレイリストを作成しました');
   }
 }
 
@@ -1345,14 +1370,14 @@ async function loadCollectionsForPicker(){
       <button class="btn collectionPickerItem" onclick="addPostToCollection('${c.id}')">
         🎵 ${esc(c.name)}
       </button>`).join('')
-    : '<div class="card muted">まだCollectionがありません</div>';
+    : '<div class="card muted">まだプレイリストがありません</div>';
 }
 
 async function createCollectionFromPicker(){
-  const name=prompt('新しいCollection名');
+  const name=prompt('新しいプレイリスト名');
   if(name===null)return;
   const clean=name.trim();
-  if(!clean)return pop('Collection名を入力して');
+  if(!clean)return pop('プレイリスト名を入力して');
 
   const r=await sb.from('collections').insert({
     user_id:me.id,
@@ -1380,12 +1405,12 @@ async function addPostToCollection(collectionId){
   });
 
   if(r.error){
-    if(String(r.error.code)==='23505')return pop('このCollectionには追加済みです');
+    if(String(r.error.code)==='23505')return pop('このプレイリストには追加済みです');
     return pop('追加できませんでした：'+r.error.message);
   }
 
   closeCollectionPicker();
-  pop('Collectionに追加しました');
+  pop('プレイリストに追加しました');
 }
 
 async function openCollection(collectionId){
@@ -1397,7 +1422,7 @@ async function openCollection(collectionId){
     .eq('user_id',me.id)
     .single();
 
-  if(c.error)return pop('Collectionを開けませんでした');
+  if(c.error)return pop('プレイリストを開けませんでした');
   $('collectionTitle').textContent=c.data.name;
 
   const cp=await sb.from('collection_posts')
@@ -1405,7 +1430,7 @@ async function openCollection(collectionId){
     .eq('collection_id',collectionId)
     .order('created_at',{ascending:false});
 
-  if(cp.error)return pop('Collectionを読み込めませんでした');
+  if(cp.error)return pop('プレイリストを読み込めませんでした');
 
   const ids=(cp.data||[]).map(x=>x.post_id);
   if(!ids.length){
@@ -1433,7 +1458,7 @@ async function openCollection(collectionId){
       </div></div>
       ${x.mood_text?`<p>${hashtagText(x.mood_text)}</p>`:''}
       ${musicActionsHtml(x)}
-      <button class="btn" onclick="removeFromCollection('${x.id}')">Collectionから外す</button>
+      <button class="btn" onclick="removeFromCollection('${x.id}')">プレイリストから外す</button>
     </div>`).join('');
 
   show('collectionDetailPage');
@@ -1442,7 +1467,7 @@ async function openCollection(collectionId){
 
 async function removeFromCollection(postId){
   if(!currentCollectionId)return;
-  const ok=confirm('このCollectionから外しますか？');
+  const ok=confirm('このプレイリストから外しますか？');
   if(!ok)return;
 
   const r=await sb.from('collection_posts')
@@ -1452,7 +1477,7 @@ async function removeFromCollection(postId){
 
   if(r.error)return pop('外せませんでした：'+r.error.message);
 
-  pop('Collectionから外しました');
+  pop('プレイリストから外しました');
   await openCollection(currentCollectionId);
 }
 
@@ -1464,7 +1489,7 @@ async function openAddExistingPosts(){
     .select('post_id')
     .eq('collection_id',currentCollectionId);
 
-  if(cp.error)return pop('Collection情報を読み込めませんでした');
+  if(cp.error)return pop('プレイリスト情報を読み込めませんでした');
 
   const already=new Set((cp.data||[]).map(x=>String(x.post_id)));
 
@@ -1506,14 +1531,14 @@ async function addExistingPostToCurrentCollection(postId){
     return pop('追加できませんでした：'+r.error.message);
   }
 
-  pop('Collectionに追加しました');
+  pop('プレイリストに追加しました');
   await openCollection(currentCollectionId);
   await openAddExistingPosts();
 }
 
 async function deleteCurrentCollection(){
   if(!currentCollectionId)return;
-  const ok=confirm('このCollectionを削除しますか？\n中の投稿そのものは削除されません。');
+  const ok=confirm('このプレイリストを削除しますか？\n中の投稿そのものは削除されません。');
   if(!ok)return;
 
   const r=await sb.from('collections')
@@ -1524,11 +1549,14 @@ async function deleteCurrentCollection(){
   if(r.error)return pop('削除できませんでした：'+r.error.message);
 
   currentCollectionId=null;
-  pop('Collectionを削除しました');
+  pop('プレイリストを削除しました');
   go('profilePage');
   switchProfileTab('collections');
 }
 
+function bookmarkIcon(saved=false){
+  return `<svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="${saved?'currentColor':'none'}" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.75h12a1 1 0 0 1 1 1V21l-7-4.5L5 21V4.75a1 1 0 0 1 1-1Z"/></svg>`;
+}
 let savedPostIds=new Set();
 
 async function loadSavedPosts(){
@@ -1545,12 +1573,14 @@ async function toggleSave(postId,btn){
     if(r.error)return pop('保存解除できませんでした：'+r.error.message);
     savedPostIds.delete(id);
     btn?.classList.remove('savedOn');
+    if(btn)btn.innerHTML=bookmarkIcon(false);
     pop('保存を解除しました');
   }else{
     const r=await sb.from('saved_posts').insert({user_id:me.id,post_id:postId});
     if(r.error)return pop('保存できませんでした：'+r.error.message);
     savedPostIds.add(id);
     btn?.classList.add('savedOn');
+    if(btn)btn.innerHTML=bookmarkIcon(true);
     pop('保存しました');
   }
 }
@@ -1571,7 +1601,7 @@ async function renderSavedPosts(){
   const userIds=[...new Set((p.data||[]).map(x=>x.user_id))];
   let pm={};
   if(userIds.length){
-    const pr=await sb.from('profiles').select('id,username,display_name,is_official').in('id',userIds);
+    const pr=await sb.from('profiles').select('id,username,display_name,is_official,avatar_text,avatar_length,avatar_bg_color,avatar_text_color').in('id',userIds);
     (pr.data||[]).forEach(u=>pm[u.id]=u);
   }
 
@@ -1589,7 +1619,7 @@ async function renderSavedPosts(){
       </div>
       ${x.mood_text?`<p>${hashtagText(x.mood_text)}</p>`:''}
       ${musicActionsHtml(x)}
-      <button class="btn savedOn" onclick="toggleSave('${x.id}',this);setTimeout(renderSavedPosts,150)">🔖 保存済み</button>
+      <button class="btn savedOn" onclick="toggleSave('${x.id}',this);setTimeout(renderSavedPosts,150)">${bookmarkIcon(true)} 保存済み</button>
     </div>`;
   }).join('');
 }
@@ -1698,7 +1728,7 @@ async function deletePost(postId,from='feed'){
 
 async function myprofile(){
   await loadPinnedPosts();
-  let pr=await sb.from('profiles').select('id,username,display_name,bio,is_private,is_official').eq('id',me.id).single();
+  let pr=await sb.from('profiles').select('id,username,display_name,bio,is_private,is_official,avatar_text,avatar_length,avatar_bg_color,avatar_text_color').eq('id',me.id).single();
   if(!pr.error){
     prof=pr.data;
     $('privacyToggle').checked=!!prof.is_private;
@@ -1719,11 +1749,11 @@ async function myprofile(){
   $('pname').innerHTML=esc(prof.display_name||prof.username)+' '+officialBadge(prof);
   $('pusername').innerHTML='@'+esc(prof.username||'user')+' '+officialBadge(prof);
   $('pbio').textContent=prof.bio||'';
-  $('pav').textContent=avatarText(prof);
+  applyAvatar($('pav'),prof);
   $('pc').textContent=a.count||0;
   $('fc').textContent=b.count||0;
   $('fg').textContent=c.count||0;
-  $('mine').innerHTML=(d.data||[]).map(p=>`<div class="card"><div class="postMusicHead">${postArtworkHtml(p)}<div class="grow"><b>${esc(p.song_title||'')}</b><div class="artist">${esc(p.artist_name||'')}</div><div class="postDate">${esc(formatPostDate(p.created_at))}</div></div></div><p>${hashtagText(p.mood_text||'')}</p>${musicActionsHtml(p)}<div style="margin-top:8px"><button class="btn" onclick="togglePin('${p.id}',this,'profile')">${pinnedPostIds.has(String(p.id))?'📌 固定済み':'📌 固定'}</button> <button class="btn" onclick="openCollectionPicker('${p.id}')">＋ Collection</button> <button class="btn" onclick="deletePost('${p.id}','profile')">🗑 削除</button></div></div>`).join('')||'<div class="card">まだ投稿なし</div>';
+  $('mine').innerHTML=(d.data||[]).map(p=>`<div class="card"><div class="postMusicHead">${postArtworkHtml(p)}<div class="grow"><b>${esc(p.song_title||'')}</b><div class="artist">${esc(p.artist_name||'')}</div><div class="postDate">${esc(formatPostDate(p.created_at))}</div></div></div><p>${hashtagText(p.mood_text||'')}</p>${musicActionsHtml(p)}<div style="margin-top:8px"><button class="btn" onclick="togglePin('${p.id}',this,'profile')">${pinnedPostIds.has(String(p.id))?'📌 固定済み':'📌 固定'}</button> <button class="btn" onclick="openCollectionPicker('${p.id}')">＋ プレイリスト</button> <button class="btn" onclick="deletePost('${p.id}','profile')">🗑 削除</button></div></div>`).join('')||'<div class="card">まだ投稿なし</div>';
   const pinnedPosts=(d.data||[]).filter(p=>pinnedPostIds.has(String(p.id)));
   $('pinnedWrap').style.display=pinnedPosts.length?'block':'none';
   $('pinnedMine').innerHTML=pinnedPosts.map(p=>`
@@ -1740,10 +1770,28 @@ async function myprofile(){
 
 }
 
+function updateAvatarPreview(){
+  const inp=$('editAvatarText');
+  const chars=Array.from(inp.value).slice(0,6);
+  if(Array.from(inp.value).length>6)inp.value=chars.join('');
+  const n=Number($('editAvatarLength').value);
+  $('avatarLengthValue').textContent=n;
+  applyAvatar($('avatarPreview'),{
+    avatar_text:inp.value||prof?.display_name||prof?.username||'?',
+    avatar_length:n,avatar_bg_color:$('editAvatarBg').value,
+    avatar_text_color:$('editAvatarFg').value
+  });
+}
+
 function openEditProfile(){
   $('editDisplayName').value=prof?.display_name||'';
   $('editUsername').value=prof?.username||'';
   $('editBio').value=prof?.bio||'';
+  $('editAvatarText').value=prof?.avatar_text||'';
+  $('editAvatarLength').value=prof?.avatar_length||2;
+  $('editAvatarBg').value=prof?.avatar_bg_color||'#A98BEB';
+  $('editAvatarFg').value=prof?.avatar_text_color||'#FFFFFF';
+  updateAvatarPreview();
   $('bioCount').textContent=$('editBio').value.length;
   show('editProfilePage');
   scrollTo(0,0);
@@ -1757,6 +1805,10 @@ async function saveProfile(){
   const displayName=$('editDisplayName').value.trim();
   const username=$('editUsername').value.trim();
   const bio=$('editBio').value.trim();
+  const avatar_text=Array.from($('editAvatarText').value.trim()).slice(0,6).join('')||null;
+  const avatar_length=Number($('editAvatarLength').value);
+  const avatar_bg_color=$('editAvatarBg').value;
+  const avatar_text_color=$('editAvatarFg').value;
 
   if(!displayName)return pop('表示名を入力して');
   if(username.length<3)return pop('ユーザー名は3文字以上にしてね');
@@ -1767,7 +1819,7 @@ async function saveProfile(){
   b.textContent='保存中…';
 
   let r=await sb.from('profiles')
-    .update({display_name:displayName,username,bio})
+    .update({display_name:displayName,username,bio,avatar_text,avatar_length,avatar_bg_color,avatar_text_color})
     .eq('id',me.id)
     .select('id,username,display_name,bio,is_private')
     .single();
@@ -1781,7 +1833,7 @@ async function saveProfile(){
   }
 
   prof=r.data;
-  $('av').textContent=avatarText(prof);
+  applyAvatar($('av'),prof);
   pop('プロフィールを更新した');
   go('profilePage');
 }
@@ -1814,13 +1866,13 @@ async function openFollowRequests(){
       return;
     }
     const ids=[...new Set(rows.map(x=>x.requester_id))];
-    let p=await sb.from('profiles').select('id,username,display_name').in('id',ids);
+    let p=await sb.from('profiles').select('id,username,display_name,avatar_text,avatar_length,avatar_bg_color,avatar_text_color').in('id',ids);
     if(p.error)throw p.error;
     const pm={};(p.data||[]).forEach(x=>pm[x.id]=x);
     $('followRequestsList').innerHTML=rows.map(x=>{
       const u=pm[x.requester_id]||{username:'user',display_name:''};
       return `<div class="card requestRow" id="req_${x.requester_id}">
-        <div class="avatar">${esc(avatarText(u))}</div>
+        <div class="avatar" style="${avatarStyle(u)}">${esc(avatarText(u))}</div>
         <div class="grow"><b>@${esc(u.username||'user')}</b><div class="muted">${esc(u.display_name||'')}</div></div>
         <div class="requestActions">
           <button class="btn black" onclick="approveFollowRequest('${x.requester_id}')">承認</button>
@@ -1861,9 +1913,9 @@ async function openFollowList(type){
       $('followList').innerHTML=`<div class="card muted">${type==='followers'?'まだフォロワーはいません':'まだ誰もフォローしていません'}</div>`;
       return;
     }
-    let p=await sb.from('profiles').select('id,username,display_name').in('id',ids);
+    let p=await sb.from('profiles').select('id,username,display_name,avatar_text,avatar_length,avatar_bg_color,avatar_text_color').in('id',ids);
     if(p.error)throw p.error;
-    $('followList').innerHTML=(p.data||[]).map(u=>`<div class="card row" style="cursor:pointer" onclick="openPublicProfile('${u.id}','${type}')"><div class="avatar">${esc(avatarText(u))}</div><div class="grow"><b>@${esc(u.username||'user')}</b><div class="muted">${esc(u.display_name||'')}</div></div>${u.id!==me.id?`<button class="btn" onclick="event.stopPropagation();openChatWith('${u.id}')">💬</button>`:''}</div>`).join('');
+    $('followList').innerHTML=(p.data||[]).map(u=>`<div class="card row" style="cursor:pointer" onclick="openPublicProfile('${u.id}','${type}')"><div class="avatar" style="${avatarStyle(u)}">${esc(avatarText(u))}</div><div class="grow"><b>@${esc(u.username||'user')}</b><div class="muted">${esc(u.display_name||'')}</div></div>${u.id!==me.id?`<button class="btn" onclick="event.stopPropagation();openChatWith('${u.id}')">💬</button>`:''}</div>`).join('');
   }catch(e){$('followList').innerHTML='<div class="card error">'+esc(e.message)+'</div>'}
 }
 
@@ -1967,7 +2019,7 @@ function renderMemoryDay(){
       ${musicActionsHtml(p)}
       <div style="margin-top:8px">
         <button class="btn" onclick="togglePin('${p.id}',this,'memory')">${pinnedPostIds.has(String(p.id))?'📌 固定済み':'📌 固定'}</button>
-        <button class="btn" onclick="openCollectionPicker('${p.id}')">＋ Collection</button>
+        <button class="btn" onclick="openCollectionPicker('${p.id}')">＋ プレイリスト</button>
         <button class="btn" onclick="deletePost('${p.id}','memory')">🗑 削除</button>
       </div>
     </div>`).join('');
@@ -1979,7 +2031,7 @@ function renderMemoryDay(){
 function renderGrowth(){let n=allPosts.filter(p=>p.user_id===me?.id).length,lv=n<2?1:n<5?2:n<10?3:n<20?4:5,ic=['','🌱','🌿','🌳','🌲','🪐'];$('creature').textContent=ic[lv];$('level').textContent='Lv.'+lv;$('growthBar').style.width=Math.min(100,15+n*8)+'%';$('growthText').textContent=`累計 ${n} 投稿`}
 
 async function getProfileById(id){
-  let r=await sb.from('profiles').select('id,username,display_name').eq('id',id).single();
+  let r=await sb.from('profiles').select('id,username,display_name,avatar_text,avatar_length,avatar_bg_color,avatar_text_color').eq('id',id).single();
   if(r.error)throw r.error;
   return r.data;
 }
@@ -2013,7 +2065,7 @@ async function openChatWith(otherId){
     activeConversation=(r.data&&r.data.length)?r.data[0]:null;
 
     $('chatName').textContent='@'+(activeChatUser.username||'user');
-    $('chatAv').textContent=avatarText(activeChatUser);
+    applyAvatar($('chatAv'),activeChatUser);
     $('chatPage').classList.add('open');
 
     if(activeConversation){
@@ -2151,7 +2203,7 @@ async function loadChats(){
   let otherIds=[...new Set(rows.map(c=>c.user1_id===me.id?c.user2_id:c.user1_id))];
 
   let p=await sb.from('profiles')
-    .select('id,username,display_name,is_official')
+    .select('id,username,display_name,is_official,avatar_text,avatar_length,avatar_bg_color,avatar_text_color')
     .in('id',otherIds);
 
   let pm={};
@@ -2165,7 +2217,7 @@ async function loadChats(){
     const preview=(mine?'あなた: ':'')+(lm?.message_text||'');
 
     return `<div class="card chatListItem" onclick="openChatWith('${oid}')">
-      <div class="avatar">${esc(avatarText(u))}</div>
+      <div class="avatar" style="${avatarStyle(u)}">${esc(avatarText(u))}</div>
       <div class="chatMeta">
         <b>@${esc(u.username||'user')} ${officialBadge(u)}</b>
         <div class="muted">${esc(preview)}</div>

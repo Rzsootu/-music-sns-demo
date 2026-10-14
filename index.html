@@ -163,6 +163,80 @@ background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);-webkit-background-clip:t
 .announcementItem{margin-bottom:10px}
 .announcementDate{font-size:11px;color:#858691;margin-top:6px}
 
+.feedHero{
+  margin:12px 0 18px;padding:14px 16px;border-radius:20px;
+  background:
+    radial-gradient(circle at 15% 20%,rgba(235,190,255,.28),transparent 35%),
+    radial-gradient(circle at 80% 80%,rgba(118,96,255,.22),transparent 40%),
+    #151720;
+  border:1px solid #2b2e38
+}
+.feedHeroBtn{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:10px 14px;border-radius:14px;border:1px solid #343746;
+  background:#11131a;color:#fff;font-weight:800
+}
+.feedPost{
+  background:#0f1117;border:1px solid #232631;border-radius:22px;
+  padding:12px;margin:0 0 12px
+}
+.feedPostHead{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.feedAvatar{
+  width:42px;height:42px;border-radius:50%;
+  background:linear-gradient(145deg,#f0c9c8,#9587ef);
+  display:flex;align-items:center;justify-content:center;
+  font-weight:900;color:#111;flex:0 0 auto;border:1px solid rgba(255,255,255,.35)
+}
+.feedUser{font-weight:850;line-height:1.15}
+.feedMeta{font-size:11px;color:#8c8e98;margin-top:3px}
+.kebab{
+  margin-left:auto;border:0;background:transparent;color:#fff;
+  font-size:25px;line-height:1;padding:6px 8px;border-radius:10px
+}
+.feedPostBody{display:flex;gap:14px;align-items:flex-start}
+.feedArtwork{
+  width:46%;max-width:180px;aspect-ratio:1;border-radius:16px;object-fit:cover;
+  background:#22252d;flex:0 0 auto
+}
+.feedArtworkFallback{
+  width:46%;max-width:180px;aspect-ratio:1;border-radius:16px;background:#22252d;
+  display:flex;align-items:center;justify-content:center;font-size:36px;flex:0 0 auto
+}
+.feedMusicInfo{min-width:0;flex:1;padding-top:4px}
+.feedMusicInfo .song{font-size:17px}
+.feedMusicInfo .artist{margin-top:3px}
+.feedCaption{margin-top:13px;line-height:1.55}
+.feedMusicActions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.feedBottomBar{
+  display:flex;align-items:center;gap:8px;margin-top:11px;
+  padding-top:10px;border-top:1px solid #1d2028
+}
+.feedIconBtn{
+  border:1px solid #2a2d38;background:#171922;color:#fff;
+  min-width:46px;height:38px;border-radius:14px;padding:0 12px;font-weight:800
+}
+.feedIconBtn.likeOn{border-color:#b178ff;background:#261c35}
+.feedCount{font-size:12px;color:#9a9ca6;margin-left:-2px}
+.feedChevron{margin-left:auto}
+.postMenuSheet{padding-bottom:calc(18px + env(safe-area-inset-bottom))}
+.postMenuItem{
+  width:100%;display:flex;align-items:center;gap:12px;
+  padding:15px 8px;border:0;border-bottom:1px solid #262934;
+  background:transparent;color:#fff;text-align:left;font-size:15px
+}
+.postMenuItem.danger{color:#ff7f8d}
+.floatingPostBtn{
+  position:fixed;left:20px;bottom:calc(82px + env(safe-area-inset-bottom));
+  width:58px;height:58px;border-radius:50%;border:1px solid rgba(255,255,255,.18);
+  background:linear-gradient(145deg,#c58cff,#8a6cf6);
+  color:#fff;font-size:32px;line-height:1;z-index:14;
+  box-shadow:0 10px 30px rgba(116,85,230,.35)
+}
+@media (min-width:700px){
+  .floatingPostBtn{left:calc(50% - 330px)}
+}
+
+
 
 
 
@@ -283,7 +357,9 @@ background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);-webkit-background-clip:t
   <div id="announcementBannerPreview" class="preview"></div>
 </div>
 
-  <div class="hero"><small>TODAY'S MELODY</small><h1>今日という一日を、<br>1曲で残そう。</h1><button class="btn" onclick="openPost()">＋ 今日の1曲</button></div>
+  <div class="feedHero">
+    <button class="feedHeroBtn" onclick="openPost()">＋ 今日の1曲を投稿する</button>
+  </div>
   <h3>Today's feed</h3>
   <div id="feed"></div>
   <h3 style="margin-top:28px">Recent melodies</h3>
@@ -403,7 +479,15 @@ background:linear-gradient(90deg,#fff,#efc7c8,#a895ff);-webkit-background-clip:t
   <div id="hashtagPosts"></div>
 </section>
 </div>
+<button id="floatingPostBtn" class="floatingPostBtn hidden" onclick="openPost()">＋</button>
 <nav id="nav" class="bottom hidden"><button class="nav" onclick="go('home')">⌂<br>Feed</button><button class="nav" onclick="go('people')">⌕<br>People</button><button class="nav" onclick="go('messages')">💬<br>Chat</button><button class="nav" onclick="go('calendar')">▦<br>Calendar</button><button class="nav" onclick="go('profilePage')">●<br>Profile</button></nav>
+<div id="postMenuModal" class="modal" onclick="if(event.target===this)closePostMenu()">
+  <div class="sheet postMenuSheet">
+    <div id="postMenuTitle" class="muted" style="padding:4px 8px 10px">投稿メニュー</div>
+    <div id="postMenuItems"></div>
+    <button class="btn" style="width:100%;margin-top:12px" onclick="closePostMenu()">閉じる</button>
+  </div>
+</div>
 <div id="postModal" class="modal">
   <div class="sheet">
     <h2>今日を、1曲で。</h2>
@@ -641,10 +725,10 @@ function hideSplash(){
   },1700);
 }
 
-async function boot(){hideSplash();try{sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);let r=await sb.auth.getSession();if(r.error)throw r.error;if(!r.data.session){$('nav').classList.add('hidden');show('auth');return}me=r.data.session.user;await ensureProfile();start()}catch(e){$('nav').classList.add('hidden');show('auth');$('msg').textContent=e.message}}
+async function boot(){hideSplash();try{sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);let r=await sb.auth.getSession();if(r.error)throw r.error;if(!r.data.session){$('nav').classList.add('hidden');$('floatingPostBtn')?.classList.add('hidden');show('auth');return}me=r.data.session.user;await ensureProfile();start()}catch(e){$('nav').classList.add('hidden');show('auth');$('msg').textContent=e.message}}
 async function signup(){try{let n=$('uname').value.trim();if(n.length<3)throw new Error('ユーザー名は3文字以上にしてね');let r=await sb.auth.signUp({email:$('email').value.trim(),password:$('pass').value,options:{emailRedirectTo:APP_URL,data:{username:n,display_name:n}}});if(r.error)throw r.error;if(!r.data.session){$('msg').textContent='確認メールを開いてからMeloryに戻ってログインしてね';return}me=r.data.user;await ensureProfile();start()}catch(e){$('msg').textContent=e.message}}
 async function login(){try{$('msg').textContent='ログイン中…';let r=await sb.auth.signInWithPassword({email:$('email').value.trim(),password:$('pass').value});if(r.error)throw r.error;me=r.data.user;await ensureProfile();$('msg').textContent='';start()}catch(e){$('msg').textContent=e.message}}
-function start(){$('nav').classList.remove('hidden');$('av').textContent=avatarText(prof);go('home')}
+function start(){$('nav').classList.remove('hidden');$('floatingPostBtn').classList.remove('hidden');$('av').textContent=avatarText(prof);go('home')}
 function go(id){show(id);if(id==='home')feed();if(id==='people')users();if(id==='messages')loadChats();if(id==='profilePage'){myprofile();switchProfileTab('posts')}if(id==='calendar')renderCalendar();if(id==='growth')renderGrowth();scrollTo(0,0)}
 
 function formatPostDate(ts){
@@ -729,6 +813,15 @@ async function feed(){
   let lr=await sb.from('likes').select('post_id').eq('user_id',me.id);
   let liked=new Set((lr.data||[]).map(x=>String(x.post_id)));
 
+  let likeCounts={};
+  let allLikeRows=await sb.from('likes').select('post_id');
+  if(!allLikeRows.error){
+    (allLikeRows.data||[]).forEach(x=>{
+      const k=String(x.post_id);
+      likeCounts[k]=(likeCounts[k]||0)+1;
+    });
+  }
+
   const now=new Date();
   const isToday=p=>{
     const d=new Date(p.created_at);
@@ -740,7 +833,53 @@ async function feed(){
   const todayPosts=allPosts.filter(isToday);
   const recentPosts=allPosts.filter(p=>!isToday(p));
 
-  const renderPost=p=>`<div class="card"><div class="postMusicHead">${postArtworkHtml(p)}<div class="grow"><div class="song">${esc(p.song_title||'今日の1曲')}</div><div class="artist">${esc(p.artist_name||'')}</div><div class="time">@${esc(pm[p.user_id]?.username||'user')}</div><div class="postDate">${esc(formatPostDate(p.created_at))}</div></div></div><p>${hashtagText(p.mood_text||'')}</p>${musicActionsHtml(p)}<div style="margin-top:8px"><button class="btn ${liked.has(String(p.id))?'likeOn':''}" onclick="like('${p.id}',this)">${liked.has(String(p.id))?'♥ いいね':'♡ いいね'}</button> ${p.user_id!==me.id?`<button class="btn" onclick="openChatWith('${p.user_id}')">💬 Chat</button>`:`<button class="btn" onclick="togglePin('${p.id}',this)">${pinnedPostIds.has(String(p.id))?'📌 固定済み':'📌 固定'}</button> <button class="btn" onclick="openCollectionPicker('${p.id}')">＋ Collection</button> <button class="btn" onclick="deletePost('${p.id}')">🗑 削除</button>`}</div></div>`;
+  const renderPost=p=>{
+    const u=pm[p.user_id]||{};
+    const own=p.user_id===me.id;
+    const art=hiResArtwork(p.artwork_url||'');
+    const artHtml=art
+      ? `<img class="feedArtwork" src="${esc(art)}" alt="">`
+      : `<div class="feedArtworkFallback">🎵</div>`;
+    const previewBtn=p.preview_url
+      ? `<button class="btn previewBtn" onclick="playPreview('${esc(p.preview_url)}',this)">▶ 試聴</button>`
+      : '';
+    const appleBtn=p.track_url
+      ? `<a class="btn appleLink" href="${esc(p.track_url)}" target="_blank" rel="noopener"> Apple Musicで開く</a>`
+      : '';
+    return `<div class="feedPost">
+      <div class="feedPostHead">
+        <div class="feedAvatar">${esc(avatarText(u))}</div>
+        <div>
+          <div class="feedUser">@${esc(u.username||'user')}</div>
+          <div class="feedMeta">${esc(formatPostDate(p.created_at))}</div>
+        </div>
+        <button class="kebab" onclick="openPostMenu('${p.id}')">⋮</button>
+      </div>
+
+      <div class="feedPostBody">
+        ${artHtml}
+        <div class="feedMusicInfo">
+          <div class="song">${esc(p.song_title||'今日の1曲')}</div>
+          <div class="artist">${esc(p.artist_name||'')}</div>
+          ${p.mood_text?`<div class="feedCaption">${hashtagText(p.mood_text)}</div>`:''}
+        </div>
+      </div>
+
+      <div class="feedMusicActions">
+        ${previewBtn}
+        ${appleBtn}
+      </div>
+
+      <div class="feedBottomBar">
+        <button class="feedIconBtn ${liked.has(String(p.id))?'likeOn':''}" onclick="like('${p.id}',this);setTimeout(feed,250)">
+          ${liked.has(String(p.id))?'♥':'♡'}
+        </button>
+        <span class="feedCount">${likeCounts[String(p.id)]||0}</span>
+        ${!own?`<button class="feedIconBtn" onclick="openChatWith('${p.user_id}')">💬</button>`:''}
+        <button class="feedIconBtn feedChevron" onclick="openPostMenu('${p.id}')">⌄</button>
+      </div>
+    </div>`;
+  }
 
   $('feed').innerHTML=todayPosts.map(renderPost).join('')
     || '<div class="card muted">今日の投稿はまだありません</div>';
@@ -750,6 +889,78 @@ async function feed(){
 
   renderCalendar();
   renderGrowth();
+}
+
+
+let activeMenuPostId=null;
+
+function getPostById(id){
+  return allPosts.find(p=>String(p.id)===String(id));
+}
+
+function closePostMenu(){
+  $('postMenuModal').classList.remove('show');
+  activeMenuPostId=null;
+}
+
+function openPostMenu(postId){
+  const p=getPostById(postId);
+  if(!p)return;
+  activeMenuPostId=postId;
+  const own=p.user_id===me.id;
+
+  let items='';
+  if(own){
+    items+=`
+      <button class="postMenuItem" onclick="menuTogglePin()">📌 ${pinnedPostIds.has(String(p.id))?'固定を外す':'この投稿を固定する'}</button>
+      <button class="postMenuItem" onclick="menuAddCollection()">🔖 Collectionに追加</button>
+      <button class="postMenuItem" onclick="copyPostLink()">↗ リンクをコピー</button>
+      <button class="postMenuItem danger" onclick="menuDeletePost()">🗑 この投稿を削除</button>`;
+  }else{
+    items+=`
+      <button class="postMenuItem" onclick="copyPostLink()">↗ リンクをコピー</button>
+      <button class="postMenuItem" onclick="menuOpenChat()">💬 メッセージを送る</button>`;
+  }
+
+  $('postMenuItems').innerHTML=items;
+  $('postMenuModal').classList.add('show');
+}
+
+async function menuTogglePin(){
+  const id=activeMenuPostId;
+  closePostMenu();
+  await togglePin(id,null,'feed');
+  await feed();
+}
+
+function menuAddCollection(){
+  const id=activeMenuPostId;
+  closePostMenu();
+  openCollectionPicker(id);
+}
+
+function menuDeletePost(){
+  const id=activeMenuPostId;
+  closePostMenu();
+  deletePost(id);
+}
+
+function menuOpenChat(){
+  const p=getPostById(activeMenuPostId);
+  closePostMenu();
+  if(p)openChatWith(p.user_id);
+}
+
+async function copyPostLink(){
+  const id=activeMenuPostId;
+  const url=`${APP_URL}?post=${encodeURIComponent(id)}`;
+  try{
+    await navigator.clipboard.writeText(url);
+    pop('リンクをコピーしました');
+  }catch(e){
+    prompt('このリンクをコピーして',url);
+  }
+  closePostMenu();
 }
 
 function openPost(){
